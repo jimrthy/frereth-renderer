@@ -1,3 +1,6 @@
+Frereth-Renderer
+================
+
 UI component of frereth.
 
 It will pretty much definitely be dependent on frenv.

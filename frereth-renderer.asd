@@ -4,7 +4,7 @@
   :serial t
   :description "The UI layer for frereth"
   :author "jamesgatannah@gmail.com"
-  :license "llgpl"
+  :license "LGPL"
   :depends-on (#:frenv
                #:alexandria)
   :components ((:file "package")
