@@ -2,10 +2,19 @@
 
 (in-package #:frereth-renderer)
 
-;;; "frereth-renderer" goes here. Hacks and glory await!
+(defun input (&optional prompt)
+  (format t "~A"
+	  (if prompt
+	      prompt
+	      "=> "))
+  (read))
 
-(defun main (&args)
-  (let ((repl (reader ns)))
-    (do ((cmd (read))
-	 (= cmd :quit)
-	 (format t "Do something with: ~A" cmd)))))
+
+(defun main (&optional args)
+  (declare (ignore args))
+  ;; Umm....what was I thinking?
+  #| (let ((repl (reader ns)))) |#
+  
+  (do ((cmd (input) (input)))
+      ((equal cmd :quit) t)
+      (format t "Do something with: ~A" cmd)))

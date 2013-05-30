@@ -1,5 +1,8 @@
 ;;;; package.lisp
 
 (defpackage #:frereth-renderer
-  (:use #:cl))
+  (:use #:cl)
+  (:export #:main))
 
+(defpackage #:frereth-renderer-configuration
+  (:use #:cl))

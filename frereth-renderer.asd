@@ -6,7 +6,9 @@
   :author "jamesgatannah@gmail.com"
   :license "LGPL"
   :depends-on (#:frenv
-               #:alexandria)
+               #:alexandria
+	       #:zeromq)
   :components ((:file "package")
+	       (:file "configuration")
                (:file "frereth-renderer")))
 
