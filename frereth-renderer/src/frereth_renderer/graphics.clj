@@ -47,8 +47,9 @@ Baby steps."
   (init-window params)
   (init-gl params))
 
-(defn draw
-  [{:keys [width height angle]}]
+(defn draw-basic-triangles
+  [{:keys [width height angle]}
+   drawer]
   (let [w2 (/ width 2.0)
         h2 (/ height 2.0)]
     (GL11/glClear (bit-or GL11/GL_COLOR_BUFFER_BIT  GL11/GL_DEPTH_BUFFER_BIT))
@@ -58,15 +59,41 @@ Baby steps."
     (GL11/glRotatef angle 0 0 1)
     (GL11/glScalef 2 2 1)
     (GL11/glBegin GL11/GL_TRIANGLES)
-    (do
-      (GL11/glColor3f 1.0 0.0 0.0)
-      (GL11/glVertex2i 100 0)
-      (GL11/glColor3f 0.0 1.0 0.0)
-      (GL11/glVertex2i -50 86.6)
-      (GL11/glColor3f 0.0 0.0 1.0)      
-      (GL11/glVertex2i -50 -86.6)
-      )
+    (drawer)
     (GL11/glEnd)))
+
+(defn draw-colored-vertex [color vertex]
+  (GL11/glColor3f (color 0) (color 1) (color 2))
+  (GL11/glVertex2i (vertex 0) (vertex 1)))
+
+(defn draw-multi-colored-triangle [[color1 color2 color3] [vertex1 vertex2 vertex3]]
+  (draw-colored-vertex color1 vertex1)
+  (draw-colored-vertex color2 vertex2)
+  (draw-colored-vertex color3 vertex3))
+
+(defn draw-splash-triangle)
+  [params intensity]
+  (letfn [(minimalist-triangle []
+            (let [color1 [intensity 0.0 0.0]
+                  color2 [0.0 intensity 0.0]
+                  color3 [0.0 0.0 intensity]
+                  vertex1 [100 0]
+                  vertex2 [-50 86.6]
+                  vertex3 [-50 -86.6]])
+            (draw-multi-colored-triangle [color1 color2 color3] [vertex1 vertex2 vertex3]))]
+    (draw-basic-triangles params minimalist-triangle))
+
+(defn draw-initial-splash
+  [params]
+  (draw-splash-triangle params 1.0))
+
+(defn draw-secondary-splash
+  [params]
+  (let [angle (:angle params)
+        (radians (Math/toRadians angle))
+        cos (Math/cos radians)
+        intensity (Math/abs cos)]
+    (draw-splash-tringle params intensity))
 
 (defn update-initial-splash
   [{:keys [width height angle last-time]} :as params]
@@ -75,10 +102,16 @@ Baby steps."
         next-angle (+ (* delta-time 0.05) angle)
         next-angle (if (>= next-angle 360.0)
                      (- next-angle 360.0)
-                     next-angle)
-        result (into params :angle next-angle :last-time cur-time)]
-    (draw result)
-    result))
+                     next-angle)]
+    (into params :angle next-angle :last-time cur-time)))
+
+(defn update
+  [{params}]
+  (let [actual-update (:update-function params)
+        updated (actual-update params)
+        drawer (:draw-function params)]
+    (drawer updated)
+    updated))
 
 (defn fps->millis
   "Silly utilitiy function. At x frames per second, each individual
@@ -86,23 +119,26 @@ frame should be on the screen for y milliseconds."
   [x]
   (* (/ 1 f) 1000))
 
-(defn run-initial-splash
-  "Show an initial splash screen while we're waiting to connect to a client"
+(defn run-splash
+  "Show an initial splash screen while we're waiting for something interesting"
   [{:keys [controller]} :as params]
   ;; Try to read from controller. Use an alt with a 60 FPS timeout.
   ;; This function shouldn't last long at all.
   (let [frame-length  (fps->millis 60)]
-    (loop [params params]
+    (loop [params (into params {:update-function update-initial-splash
+                                :draw-function draw-initial-splash})]
       (when (not (Display/isCloseRequested))
-        (let [updated-params (update-initial-splash params)]
+        (let [updated-params (update params)]
              (Display/update)
-             ;; TODO: Do I really want to create a new timeout each frame?
-             (throw (RuntimeException. "Get that answered"))
+             ;; Q: Do I really want to create a new timeout each frame?
+             ;; A: Must. timeout involves an absolute value after the
+             ;; channel is created.
              (let [next-frame (timeout frame-length)]
                (let [[value channel] 
                      (alts!! [controller next-frame])]
                  ;; If the channel actually closed, something bad has happened.
                  ;; TODO: is that true?
+
                  ;; I expect this to mostly timeout. What is value then?
                  (if (= channel next-frame)
                    (do
@@ -110,10 +146,15 @@ frame should be on the screen for y milliseconds."
                      ;; TODO: Need to update the angle associated with params.
                      (recur update-params))
                    (do
-                     (assert (= value :sterile-environment))
-                     ;; In all honesty, I want to keep doing exactly the same
-                     ;; thing.
-                     ;; Except that update-initial-splash should start doing
-                     ;; something more interesting, and I'm waiting on a
-                     ;; different value.
-                     (throw (RuntimeException. "What next?")))))))))))
+                     ;; TODO: Be smarter about different values.
+                     ;; (i.e. Different messages mean different things to
+                     ;; the FSM).
+                     ;; Probably want an explicit state machine here.
+                     (if (= value :sterile-environment)
+                       (recur (into update-params 
+                                    {:draw-function draw-secondary-splash}))
+                       (do
+                         ;; I am going to have to handle this...it's where
+                         ;; life starts to get interesting.
+                         (throw (RuntimeException. (str "Unhandled transition:"
+                                                          value))))))))))))))
