@@ -26,7 +26,7 @@
                            :controller visualization-channel}]
       (graphics/build-display visual-details)
       (letfn [(initial-splash []
-                (graphics/run-initial-splash visual-details))]
+                (graphics/run-splash visual-details))]
         (.start (Thread. initial-splash))))
 
     ;;; After the splash screen is created, start dealing with some meat.
