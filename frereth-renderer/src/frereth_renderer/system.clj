@@ -24,6 +24,9 @@
                            :height 768
                            :title "Frereth"
                            :controller visualization-channel}]
+      ;; The display has to be created in the same thread where the
+      ;; drawing happens.
+      ;; This seems to totally go against the grain of lwjgl in general...
       (graphics/build-display visual-details)
       (letfn [(initial-splash []
                 (graphics/run-splash visual-details))]
@@ -60,10 +63,12 @@
 (defn stop
   "Perform the side-effects to sterilize a universe"
   [universe]
+  (async/>!! @(:visualizer universe) :exiting)
   (async/close! @(:control-channel universe))
   (mq/close @(:client-socket universe))
   ;; Realistically: want to take some time to allow that socket to wrap
   ;; everything up.
   (mq/terminate @(:messaging universe))
+  (graphics/stop)
   (init))
 

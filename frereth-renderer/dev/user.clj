@@ -5,7 +5,9 @@
             [clojure.repl :refer :all]
             [clojure.test :as test]
             [clojure.tools.namespace.repl :refer (refresh refresh-all)]
-            [frereth-renderer.system :as system]))
+            [frereth-renderer.graphics :as graphics]
+            [frereth-renderer.system :as system])
+  (:import [org.lwjgl.opengl.GL11]))
 
 (def system nil)
 

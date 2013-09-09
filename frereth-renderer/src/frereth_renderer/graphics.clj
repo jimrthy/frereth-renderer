@@ -39,6 +39,9 @@ Baby steps."
                   0.0 height)
   (GL11/glMatrixMode GL11/GL_MODELVIEW))
 
+(defn stop []
+  (Display/destroy))
+
 (defn build-display
   "Set up the 'main' window."
   [params]
