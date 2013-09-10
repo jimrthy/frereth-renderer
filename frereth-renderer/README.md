@@ -8,6 +8,10 @@ version working. Try it with clojure instead.
 Clone this repository for github. Update your project.clj and copy
 the src directory from this one into yours.
 
+Get a copy of the lwjgl binaries (most likely in a .jar file). Unzip
+them (it's really just a .zip) and put the native binaries for your
+architecture inside the native folder under the root of this project.
+
 No, it ain't pretty. But it's a start.
 
 ## Usage

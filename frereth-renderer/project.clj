@@ -9,7 +9,14 @@
                  [org.jeromq/jeromq "0.3.0-SNAPSHOT"]
                  [org.zeromq/cljzmq "0.1.1" :exclusions [org.zeromq/jzmq]]
                  ;; TODO: An nrepl client?
-                 [org.clojars.toxi/jogl "2.0.0-rc11"]]
+                 ;;[org.clojars.toxi/jogl "2.0.0-rc11"]
+                 [org.lwjgl.lwjgl/lwjgl "2.9.0"]
+                 [org.lwjgl.lwjgl/lwjgl_util "2.9.0"]]
+  ;; Needed to get to lwjgl native libs
+  :jvm-opts [~(str "-Djava.library.path=native/:"
+                   (System/getProperty "java.library.path"))]
+  ;; One is needed for core.async.
+  ;; I think the other's for jeromq.
   :repositories {"sonatype-oss-public" "https://oss.sonatype.org/content/groups/public/"
                  "sonatype-nexus-snapshots" "https://oss.sonatype.org/content/repositories/snapshots"}
   :profiles {:uberjar {:aot :all}

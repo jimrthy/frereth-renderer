@@ -5,7 +5,9 @@
             [clojure.repl :refer :all]
             [clojure.test :as test]
             [clojure.tools.namespace.repl :refer (refresh refresh-all)]
-            [frereth-renderer.system :as system]))
+            [frereth-renderer.graphics :as graphics]
+            [frereth-renderer.system :as system])
+  (:import [org.lwjgl.opengl.GL11]))
 
 (def system nil)
 
@@ -26,8 +28,9 @@
   (alter-var-root #'system
     (fn [s] (when s (system/stop s)))))
 
-(defn go
-  "Initializes the current development system and starts it running."
+(defn go-go
+  "Initializes the current development system and starts it running.
+Can't just call this go: that conflicts with a macro from core.async."
   []
   (println "Initializing system")
   (init)
@@ -38,4 +41,4 @@
   (println "Stopping")
   (stop)
   (println "Refreshing namespaces")
-  (refresh :after 'user/go))
+  (refresh :after 'user/go-go))
