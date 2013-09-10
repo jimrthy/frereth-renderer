@@ -12,13 +12,16 @@
                  ;;[org.clojars.toxi/jogl "2.0.0-rc11"]
                  ;; N.B. Charles Stain has 3.0 binaries on clojars!
                  [org.lwjgl.lwjgl/lwjgl "2.9.0"]
-                 ;; There's a stack-overflow answer claiming that this
-                 ;; next line removes the need for specifying a native
-                 ;; lib. I'm not having any luck.
-                 ;;[org.lwjgl/lwjgl-native-platform "2.9.0"]
+                 ;; c.f. https://github.com/Syve/lwjgl-test/blob/master/project.clj
+                 ;; (This is just a clj file...can differentiate the platform
+                 ;; at runtime).
+                 ;; Doesn't help with building, but it seems like it'll be 
+                 ;; an improvement.
                  [org.lwjgl.lwjgl/lwjgl-platform "2.9.0" :classifier "natives-windows" :native-prefix ""]
                  [org.lwjgl.lwjgl/lwjgl_util "2.9.0"]]
-  ;; Needed to get to lwjgl native libs...maybe
+  ;; Needed to get to lwjgl native libs...maybe.
+  ;; Actually, since leiningen 2.1.0, probably not. This next entry seems
+  ;; to be totally obsolete.
   :jvm-opts [~(str "-Djava.library.path=native/:"
                    (System/getProperty "java.library.path"))]
   ;; One is needed for core.async.

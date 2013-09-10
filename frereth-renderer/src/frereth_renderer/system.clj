@@ -15,7 +15,8 @@
    ;; to have multiple windows by using multiple classloaders
    ;; and loading the library separately into each.
    ;; Seems like overkill...but also an extremely good idea.
-   :control-channel (atom nil)})
+   :control-channel (atom nil)
+   :visualizer (atom nil)})
 
 (defn start
   "Perform the side-effects to bring a dead system to life"
@@ -47,9 +48,8 @@
               (assert (nil? @(key universe))))]
       (doseq [k [:messaging :client-socket :control-channel]]
         (verify-dead k)))
-    ;; Tempting to update the splash screen now, just because.
-    ;; TODO: Do something interesting. Start the colors shifting
-    ;; around, or some such.
+    ;; Shift the splash screen FSM, so that I have a hint that
+    ;; processing is continuing.
     (async/>!! visualization-channel :sterile-environment)
 
     (let [ctx (mq/context 1)
@@ -58,11 +58,14 @@
       (reset! (:messaging universe) ctx)
       (reset! (:client-socket universe) socket)
       (reset! (:control-channel universe) chan)
+      (assert visualization-channel)
       (reset! (:visualizer universe) visualization-channel)
       ;; This is wrong...at this point, really should start feeding
       ;; messages back and forth between the channel and the 
       ;; client-socket.
-      (async/>!! visualization-channel :ready-to-play)
+      ;; Actually, no...this needs to wait until we get a response
+      ;; from the client.
+      (comment (async/>!! visualization-channel :ready-to-play))
       universe)))
 
 (defn stop
