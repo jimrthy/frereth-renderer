@@ -32,10 +32,10 @@
       ;; The display has to be created in the same thread where the
       ;; drawing happens.
       ;; This seems to totally go against the grain of lwjgl in general...
-      (graphics/build-display visual-details)
-      (letfn [(initial-splash []
-                (graphics/run-splash visual-details))]
-        (.start (Thread. initial-splash))))
+      ;;(graphics/build-display visual-details)
+      (letfn [(eye-candy []
+                (graphics/begin visual-details))]
+        (.start (Thread. eye-candy))))
 
     ;;; After the splash screen is created, start dealing with some meat.
 

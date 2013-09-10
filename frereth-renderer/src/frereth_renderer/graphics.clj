@@ -165,3 +165,10 @@ frame should be on the screen for y milliseconds."
                       ;; life starts to get interesting.
                       (throw (RuntimeException. (str "Unhandled transition:"
                                                      value))))))))))))))
+
+(defn begin
+  "Actual graphics thread where everything interesting happens."
+  [visual-details]
+  (build-display visual-details)
+  (run-splash visual-details)
+  (throw (RuntimeException. "Now the cool stuff can happen")))
