@@ -10,6 +10,11 @@
   []
   {:messaging (atom nil)
    :client-socket (atom nil)
+   ;; TODO: Create a "Top Level" window?
+   ;; Note: if I decide to go with LWJGL, I should be able
+   ;; to have multiple windows by using multiple classloaders
+   ;; and loading the library separately into each.
+   ;; Seems like overkill...but also an extremely good idea.
    :control-channel (atom nil)})
 
 (defn start
