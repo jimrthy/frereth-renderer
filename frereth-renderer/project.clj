@@ -1,3 +1,28 @@
+(defn native-classification
+  "Because of the way lwjgl is packaged, vs. the way leiningen hopes
+native libraries will be packaged, need to specify which platform is
+being used. Yes, this approach is pretty horrid.
+I wonder how this works with things like uberjars and JNLI.
+After all, TWL manages.
+Note that this is slightly different from the other examples of
+doing pretty much exactly the same thing. I wonder if it has anything
+to do with strangeness under Windows 8?
+I mean that I had to do extra fiddling that probably shouldn't have
+been needed. Most examples just add 'native/platform' to the 
+java.library.path and that's good enough."
+  []
+  (let [sys-name (System/getProperty "os.name")]
+    (cond
+     (.contains sys-name "Windows") "natives-windows"
+     (.contains sys-name "Linux") "natives-linux"
+     (.contains sys-name "Solaris") "natives-solaris"
+     ;; TODO: What should I expect for this next one?
+     ;; TODO: Verify that this works
+     (.contains sys-name "Mac") "natives-macosx"
+     :else
+     ;; Error out ASAP to get this covered.
+     (throw (RuntimeException. (str "Unknown environment: " sys-name))))))
+
 (defproject frereth-renderer "0.0.1-SNAPSHOT"
   :description "A renderer suitable for frereth, clojure style."
   :url "http://example.com/FIXME"
@@ -17,7 +42,8 @@
                  ;; at runtime).
                  ;; Doesn't help with building, but it seems like it'll be 
                  ;; an improvement.
-                 [org.lwjgl.lwjgl/lwjgl-platform "2.9.0" :classifier "natives-windows" :native-prefix ""]
+                 [org.lwjgl.lwjgl/lwjgl-platform "2.9.0" 
+                  :classifier ~(native-classification) :native-prefix ""]
                  [org.lwjgl.lwjgl/lwjgl_util "2.9.0"]]
   ;; Needed to get to lwjgl native libs...maybe.
   ;; Actually, since leiningen 2.1.0, probably not. This next entry seems
