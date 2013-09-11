@@ -169,15 +169,22 @@ FIXME: Fork that repo, add this, send a Pull Request."
 (defmulti send (fn [#^ZMQ$Socket socket message & flags]
                  (class message)))
 
-(defmethod send String
-  ([#^ZMQ$Socket socket #^String message flags]
-     (.send socket (.getBytes message) flags)))
-
 ;; Honestly, should have a specialized method to (send byte[])
 ;; But that seems like YAGNI premature optimization.
 
+(defmethod send String
+  ([#^ZMQ$Socket socket #^String message & flags]
+     (.send socket (.getBytes message) flags))
+  ([#^ZMQ$Socket socket #^String message]
+     (.send socket (.getBytes message) 0)))
+
+;; This sort of approach apparently just doesn't work.
+(comment (defmethod send clojure.lang.Keyword
+           ([#^ZMQ$Socket socket #^Keyword message & flags]
+              (send socket (str message) flags))))
+
 (defmethod send :default
-  ([#^ZMQ$Socket socket message flags]
+  ([#^ZMQ$Socket socket message & flags]
      (.send socket (bt/encode :base64) flags))
   ([#^ZMQ$Socket socket message]
      (send socket message ZMQ/NOBLOCK)))
