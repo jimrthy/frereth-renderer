@@ -1,7 +1,7 @@
 (ns frereth-renderer.core
   (:require [frereth-renderer.graphics :as graphics]
             [frereth-renderer.system :as sys]
-            [zguide.zhelpers :as mq])
+            [cljeromq.core :as mq])
   (:gen-class))
 
 (defn fsm

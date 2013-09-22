@@ -2,7 +2,7 @@
   (:require [clojure.core.async :as async]
             [frereth-renderer.config :as config]
             [frereth-renderer.graphics :as graphics]
-            [zguide.zhelpers :as mq])
+            [cljeromq.core :as mq])
   (:gen-class))
 
 (defn init
@@ -69,6 +69,6 @@
   ;; Realistically: want to take some time to allow that socket to wrap
   ;; everything up.
   (mq/terminate @(:messaging universe))
-  (graphics/stop)
+  (graphics/stop!)
   (init))
 

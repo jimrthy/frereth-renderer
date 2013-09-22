@@ -3,16 +3,19 @@
   ;; different options about which OpenGL version to use.
   ;; Although this probably makes a lot of sense for what I'm
   ;; using here.
-  (:import [org.lwjgl.opengl Display DisplayMode GL11]
-           ;; Very torn about using GLU. It seems like a mistake.
-           [org.lwjgl.util.glu GLU])
-  (:require [clojure.core.async :as async])
+  #_(:import [org.lwjgl.opengl Display DisplayMode GL11]
+             ;; Very torn about using GLU. It seems like a mistake.
+             [org.lwjgl.util.glu GLU])
+  (:require [clojure.core.async :as async]
+            [penumbra.app :as app]
+            [penumbra.opengl :as gl])
   (:gen-class))
 
 (defn driver-version
-  "What's available?"
+  "What's available?
+Note that penumbra has a get-version that returns a float version of the same value."
   []
-  (GL11/glGetString GL11/GL_VERSION))
+  (gl/get-string :version))
 
 (defn init-window
   "Initialize the static window where absolutely everything interesting will happen.
