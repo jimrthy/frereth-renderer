@@ -35,7 +35,7 @@ java.library.path and that's good enough."
                  [kephale/lwjgl-util "2.9.0"]
                  [kephale/lwjgl-natives "2.9.0"]
                  [org.clojure/clojure "1.5.1"]
-                 [org.clojure/core.async "0.1.0-SNAPSHOT"]
+                 [org.clojure/core.async "0.1.222.0-83d0c2-alpha"]
                  [org.clojure/math.combinatorics "0.0.2"]
                  [org.jeromq/jeromq "0.3.0-SNAPSHOT"]
                  [org.zeromq/cljzmq "0.1.1" :exclusions [org.zeromq/jzmq]]
@@ -80,7 +80,8 @@ java.library.path and that's good enough."
                                   [org.clojure/tools.logging "0.2.6"]]}}
   :main frereth-renderer.core
 
-  ;; One is needed for core.async.
+  ;; One was needed for core.async.
   ;; I think the other's for jeromq.
+  ;; FIXME: these are both experimental repos and should go away.
   :repositories {"sonatype-oss-public" "https://oss.sonatype.org/content/groups/public/"
                  "sonatype-nexus-snapshots" "https://oss.sonatype.org/content/repositories/snapshots"})
