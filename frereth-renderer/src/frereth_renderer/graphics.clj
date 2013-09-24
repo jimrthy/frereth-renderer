@@ -1,9 +1,6 @@
 (ns frereth-renderer.graphics
-  ;; TODO: If I'm going to take this approach, definitely want to have
-  ;; different options about which OpenGL version to use.
-  ;; Although this probably makes a lot of sense for what I'm
-  ;; using here.
   (:require [clojure.core.async :as async]
+            [frereth-renderer.fsm :as fsm]
             [penumbra.app :as app]
             [penumbra.opengl :as gl])
   (:gen-class))
@@ -26,6 +23,10 @@ windows that fill multiple monitors.
 Baby steps. I'm just trying to get that rope thrown across the gorge."
   [{:keys [width height title] :as state}]
   (app/vsync! true)
+
+  ;; These don't seem to have penumbra equivalents (though that's probably just
+  ;; because I haven't dug deep enough yet).
+  ;; Whatever. I desperately need to do something along these lines.
   (comment (Display/setDisplayMode (DisplayMode. width height))
            (Display/setTitle title)
            (Display/create))
@@ -38,27 +39,23 @@ specifying its own viewport. Most games will probably want multiple
 modes for a HUD.
 Baby steps."
   [{:keys [width height] :as state}]
-  ;; The next 2 forms apparently aren't needed under penumbra
   (gl/clear-color 0.5 0.0 0.5 0.0)
   
-  (comment
-    (gl/glMatrixMode GL11/GL_PROJECTION)
-    ;; *Definitely* have mixed feelings about using GLU. Isn't that
-    ;; basically deprecated?
-    (GLU/gluOrtho2D 0.0 width
-                    0.0 height)
-    (gl/glMatrixMode GL11/GL_MODELVIEW))
   state)
 
-(defn stop! []
-  ;; FIXME: Is there anything I can do here?
-  (comment (Display/destroy)))
-
 (defn init
-  "Set up the 'main' window."
+  "Set up the 'main' window.
+In the Stuart Sierra workflow-reloaded parlance, this is probably more of a start!"
   [params]
+  (fsm/start! (:fsm params))
   (let [state (init-window params)]
     (init-gl state)))
+
+(defn stop! [universe]
+  ;; FIXME: Is there anything I can do here?
+  ;; (That's a pretty vital requirement)
+  (comment (Display/destroy))
+  (fsm/stop! (:fsm universe)))
 
 ;;; Drawing
 
@@ -194,6 +191,9 @@ frame should be on the screen for y milliseconds."
                                (throw (RuntimeException. (str "Unhandled transition:"
                                                               value)))))))))))))))
 
+(defn draw-unknown-state [params]
+  (throw (RuntimeException. "Not Implemented")))
+
 (defn display
   "As near as I can tell, this draws the next frame.
 Which pretty much turns my original approach right on its ear."
@@ -205,8 +205,9 @@ Which pretty much turns my original approach right on its ear."
   ;; Q: What does that actually look like?
   ;; A: Well, pretty definitely not like this.
   (let [drawer
-        (condp = (:fsm state)
-          :initial-splash draw-initial-splash )]
+        (condp = (:state @(:fsm state))
+          :initial-splash draw-initial-splash 
+          draw-unknown-state)]
     (drawer state)))
 
 
@@ -218,10 +219,9 @@ Which pretty much turns my original approach right on its ear."
    {:init init
     :display display
     :reshape reshape}
-   ;; This next approach to an FSM is stupid beyond belief.
-   ;; Except that it meshes pretty well with what I actually want/need
-   ;; at the moment
-   (into visual-details
-         {:fsm :initial-splash}))
+   visual-details)
+
   (run-splash visual-details)
+
+  ;; Except that this is an extremely wrong approach.
   (throw (RuntimeException. "Now the cool stuff can happen")))

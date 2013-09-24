@@ -5,7 +5,9 @@
   (:gen-class))
 
 (defn fsm
-  "OK, so it isn't exactly an impressive state machine"
+  "OK, so it isn't exactly an impressive state machine.
+Especially since I have an entire FSM namespace now.
+FIXME: This needs to just go away."
   [universe]
   (println "Initializing State Machine")
   (let [sock @(:client-socket universe)]
