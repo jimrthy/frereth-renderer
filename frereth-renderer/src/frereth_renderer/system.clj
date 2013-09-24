@@ -36,7 +36,7 @@
       ;;(graphics/build-display visual-details)
       (letfn [(eye-candy []
                 (graphics/begin visual-details))]
-        (.start (Thread. eye-candy))))
+        (.start (Thread. eye-candy))))))
 
 (defn stop
   "Perform the side-effects to sterilize a universe"
@@ -49,6 +49,4 @@
   (mq/terminate @(:messaging universe))
   (graphics/stop!)
   (init))
-
-
 

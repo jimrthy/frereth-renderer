@@ -3,13 +3,13 @@
   ;; different options about which OpenGL version to use.
   ;; Although this probably makes a lot of sense for what I'm
   ;; using here.
-  #_(:import [org.lwjgl.opengl Display DisplayMode GL11]
-             ;; Very torn about using GLU. It seems like a mistake.
-             [org.lwjgl.util.glu GLU])
   (:require [clojure.core.async :as async]
             [penumbra.app :as app]
             [penumbra.opengl :as gl])
   (:gen-class))
+
+;;; Information
+;;; This probably doesn't actually belong here
 
 (defn driver-version
   "What's available?
@@ -17,15 +17,19 @@ Note that penumbra has a get-version that returns a float version of the same va
   []
   (gl/get-string :version))
 
+;;; Initialization
+
 (defn init-window
   "Initialize the static window where absolutely everything interesting will happen.
 This approach is more than a little dumb...should really be able to create full-screen
 windows that fill multiple monitors.
 Baby steps. I'm just trying to get that rope thrown across the gorge."
-  [{:keys [width height title]}]
-  (Display/setDisplayMode (DisplayMode. width height))
-  (Display/setTitle title)
-  (Display/create))
+  [{:keys [width height title] :as state}]
+  (app/vsync! true)
+  (comment (Display/setDisplayMode (DisplayMode. width height))
+           (Display/setTitle title)
+           (Display/create))
+  state)
 
 (defn init-gl
   "Set up the basic framework for rendering.
@@ -33,42 +37,58 @@ This is *definitely* not a long-term thing. Each world should be
 specifying its own viewport. Most games will probably want multiple
 modes for a HUD.
 Baby steps."
-  [{:keys [width height]}]
-  (GL11/glClearColor 0.5 0.0 0.5 0.0)
-  (GL11/glMatrixMode GL11/GL_PROJECTION)
-  ;; *Definitely* have mixed feelings about using GLU. Isn't that
-  ;; basically deprecated?
-  (GLU/gluOrtho2D 0.0 width
-                  0.0 height)
-  (GL11/glMatrixMode GL11/GL_MODELVIEW))
+  [{:keys [width height] :as state}]
+  ;; The next 2 forms apparently aren't needed under penumbra
+  (gl/clear-color 0.5 0.0 0.5 0.0)
+  
+  (comment
+    (gl/glMatrixMode GL11/GL_PROJECTION)
+    ;; *Definitely* have mixed feelings about using GLU. Isn't that
+    ;; basically deprecated?
+    (GLU/gluOrtho2D 0.0 width
+                    0.0 height)
+    (gl/glMatrixMode GL11/GL_MODELVIEW))
+  state)
 
-(defn stop []
-  (Display/destroy))
+(defn stop! []
+  ;; FIXME: Is there anything I can do here?
+  (comment (Display/destroy)))
 
-(defn build-display
+(defn init
   "Set up the 'main' window."
   [params]
-  (init-window params)
-  (init-gl params))
+  (let [state (init-window params)]
+    (init-gl state)))
+
+;;; Drawing
+
+(defn reshape [[x y w h] state]
+  ;; FIXME: This fixed camera isn't appropriate at all.
+  ;; It really needs to be set for whichever window is currently active.
+  ;; But it's a start.
+  ;; Besides...this is the vast majority of what init-gl was doing for starters.
+  (gl/frustum-view 60.0 (/ (double w) h) 1.0 100.0)
+  (gl/load-identity)
+  state)
 
 (defn draw-basic-triangles
   [{:keys [width height angle]}
    drawer]
   (let [w2 (/ width 2.0)
         h2 (/ height 2.0)]
-    (GL11/glClear (bit-or GL11/GL_COLOR_BUFFER_BIT GL11/GL_DEPTH_BUFFER_BIT))
-    (GL11/glLoadIdentity)
-    (GL11/glTranslatef w2 h2 0)
-    (GL11/glRotatef angle 0 0 1)
-    (GL11/glScalef 2 2 1)
-    (GL11/glBegin GL11/GL_TRIANGLES)
-    (drawer)
-    (GL11/glEnd)))
+    ;; More stuff that penumbra seems to have made obsolete.
+    ;; Kind of desperately need to learn it.
+    (comment (gl/glClear (bit-or GL11/GL_COLOR_BUFFER_BIT GL11/GL_DEPTH_BUFFER_BIT))
+             (gl/glLoadIdentity))
+    (gl/translate w2 h2 0)
+    (gl/rotate angle 0 0 1)
+    (gl/scale 2 2 1)
+    (gl/draw-triangles drawer)))
 
 (defn draw-colored-vertex 
   [color vertex]
-  (GL11/glColor3f (color 0) (color 1) (color 2))
-  (GL11/glVertex2i (vertex 0) (vertex 1)))
+  (gl/color (color 0) (color 1) (color 2))
+  (gl/vertex (vertex 0) (vertex 1)))
 
 (defn draw-multi-colored-triangle
   [[color1 color2 color3] [vertex1 vertex2 vertex3]]
@@ -126,8 +146,10 @@ frame should be on the screen for y milliseconds."
   [fps]
   (Math/round (float (* (/ 1 fps) 1000))))
 
+;; FIXME: This next function is almost totally obsolete. Except that I desperately
+;; need something to track the FSM.
 (defn run-splash
-  "Show an initial splash screen while we're waiting for something interesting"
+  "Show an initial splash screen while we're waiting for something interesting."
   [params]
   ;; Try to read from controller. Use an alt with a 60 FPS timeout.
   ;; This function shouldn't last long at all.
@@ -138,40 +160,68 @@ frame should be on the screen for y milliseconds."
                                 :draw-function draw-initial-splash
                                 :last-time initial-time
                                 :angle 0.0})]
-      (when (not (Display/isCloseRequested))
-        (let [updated-params (update params)]
-          (Display/update)
-          ;; Q: Do I really want to create a new timeout each frame?
-          ;; A: Must. timeout involves an absolute value after the
-          ;; channel is created.
-          (let [next-frame (async/timeout frame-length)]
-            (let [[value channel] 
-                  (async/alts!! [controller next-frame])]
-              ;; If the channel actually closed, something bad has happened.
-              ;; TODO: is that true?
+      ;; Just eliminate this next block for now.
+      ;; I want the state manipulation pieces of it, but not the way
+      ;; that's tied into drawing.
+      (comment (when (not (Display/isCloseRequested))
+                 (let [updated-params (update params)]
+                   (Display/update)
+                   ;; Q: Do I really want to create a new timeout each frame?
+                   ;; A: Must. timeout involves an absolute value after the
+                   ;; channel is created.
+                   (let [next-frame (async/timeout frame-length)]
+                     (let [[value channel] 
+                           (async/alts!! [controller next-frame])]
+                       ;; If the channel actually closed, something bad has happened.
+                       ;; TODO: is that true?
 
-              ;; I expect this to mostly timeout. What is value then?
-              (if (= channel next-frame)
-                (do
-                  ;; Waiting
-                  (recur updated-params))
-                (do
-                  ;; TODO: Be smarter about different values.
-                  ;; (i.e. Different messages mean different things to
-                  ;; the FSM).
-                  ;; Probably want an explicit state machine here.
-                  (if (= value :sterile-environment)
-                    (recur (into updated-params 
-                                 {:draw-function draw-secondary-splash}))
-                    (do
-                      ;; I am going to have to handle this...it's where
-                      ;; life starts to get interesting.
-                      (throw (RuntimeException. (str "Unhandled transition:"
-                                                     value))))))))))))))
+                       ;; I expect this to mostly timeout. What is value then?
+                       (if (= channel next-frame)
+                         (do
+                           ;; Waiting
+                           (recur updated-params))
+                         (do
+                           ;; TODO: Be smarter about different values.
+                           ;; (i.e. Different messages mean different things to
+                           ;; the FSM).
+                           ;; Probably want an explicit state machine here.
+                           (if (= value :sterile-environment)
+                             (recur (into updated-params 
+                                          {:draw-function draw-secondary-splash}))
+                             (do
+                               ;; I am going to have to handle this...it's where
+                               ;; life starts to get interesting.
+                               (throw (RuntimeException. (str "Unhandled transition:"
+                                                              value)))))))))))))))
+
+(defn display
+  "As near as I can tell, this draws the next frame.
+Which pretty much turns my original approach right on its ear."
+  [[delta time] state]
+  ;; In a nutshell, I need an FSM:
+  ;; 1) Show basic splash
+  ;; 2) After we're talking to the client, switch to a second splash
+  ;; 3) When the client starts telling us what to draw, switch to that.
+  ;; Q: What does that actually look like?
+  ;; A: Well, pretty definitely not like this.
+  (let [drawer
+        (condp = (:fsm state)
+          :initial-splash draw-initial-splash )]
+    (drawer state)))
+
+
 
 (defn begin
   "Actual graphics thread where everything interesting happens."
   [visual-details]
-  (build-display visual-details)
+  (app/start
+   {:init init
+    :display display
+    :reshape reshape}
+   ;; This next approach to an FSM is stupid beyond belief.
+   ;; Except that it meshes pretty well with what I actually want/need
+   ;; at the moment
+   (into visual-details
+         {:fsm :initial-splash}))
   (run-splash visual-details)
   (throw (RuntimeException. "Now the cool stuff can happen")))
