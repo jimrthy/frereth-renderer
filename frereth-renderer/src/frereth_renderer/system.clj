@@ -18,8 +18,7 @@
    ;; Seems like overkill...but also an extremely good idea.
    :control-channel (atom nil)
    :visualizer (atom nil)
-
-   :fsm (fsm/init)})
+   :graphics (graphics/init)})
 
 (defn start
   "Perform the side-effects to bring a dead system to life"
@@ -68,10 +67,17 @@
   ;; be either asynchronous or to involve anything like a callback.
   ;; Besides...that really tells it to switch to a "exiting" screen.
   ;; This is what actually kills it.
-  (graphics/stop! universe)
+  (graphics/stop universe)
 
   ;; This step seems problematic...does it rebuild the agent pool so that we
   ;; can't exit after all?
+  ;; More importantly: I'm not actually killing the app window yet
+  ;; in graphics/stop universe. So, for now, old windows will have to be
+  ;; closed manually. Which causes NPE's.
+  ;; FIXME: Fix that NPE on window close
+  ;; FIXME: Destroy the previous app window. Or recycle it.
+  ;; (Destroying better, from a "start over with a clean slate"
+  ;; perspective)
   (println "Resetting to a dead universe so the old can be garbage-collected")
   (init))
 

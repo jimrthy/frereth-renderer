@@ -61,7 +61,9 @@ java.library.path and that's good enough."
                  ;; Is it worth an external dependency at all? Especially since
                  ;; this *is* such an important part of frereth's core?
                  [simplecs "0.1.0"]
-                 [slick-util "1.0.0"]]
+                 [slick-util "1.0.0"]
+                 [slingshot "0.10.3"]]
+  ;; FIXME: These should go away.
   :git-dependencies [["git@github.com:jimrthy/penumbra.git"]
                      ["git@github.com:jimrthy/cljeromq.git"]]
   :source-paths ["src" 

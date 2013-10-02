@@ -1,25 +1,88 @@
 (ns frereth-renderer.fsm
-  (:require [clojure.core.async :as async])
+  (:require [clojure.core.async :as async]
+            [slingshot.slingshot :refer [throw+]])
   (:gen-class))
 
+;;; It's very tempting to turn this entire thing into a
+;;; closure. That doesn't seem to gain me anything now,
+;;; but...it's tempting.
+;;; Really need to make that call before this gets used
+;;; heavily.
+
 (defn init
-  "Returns a dead FSM"
-  []
+  "Returns a dead FSM.
+The description should be a map that looks like:
+ {:state1
+   {:transition1
+    [side-effect-fn
+     modified-state]
+    :transition2
+    [side-effect-fn
+     modified-state]}}
+Reserved state keys:
+Keywords that start with __
+Actually used:
+:__dead
+
+nil-side-effect-fn just mean make the transition
+without side-effects.
+This can easily be abused, but it also provides
+an extremely rich API for cheap.
+TODO: Would core.async be more appropriate than agents?"
+  [description]
   ;; The simplest thing that could possibly work
-  (agent {:state :dead}))
+  (agent (into description {:state :__dead})))
 
-(defn start!
+(defn transition!
+  "Sends a transition request.
+error-if-unknown allows caller to ignore requests to perform
+an illegal transition for the current state.
+That part is extremely easy to abuse and should almost definitely
+go away.
+OTOH...it can be extremely convenient"
+  [fsm transition-key & error-if-unknown]
+  (send fsm (fn [machine]
+              (if-let [{:keys [state] as machine} machine]
+                (if-let [transitions (state machine)]
+                  (if-let [[side-effect updated] (transitions transition-key)]
+                    (do
+                      (when side-effect
+                        (side-effect))
+                      ;; Success!
+                      (into machine {:state state}))
+                    (when error-if-unknown
+                      (throw+ (into machine {:failure :transition :which transition-key}))))
+                  ;; FSM doesn't know anything about its current state.
+                  ;; Not really any way around this either
+                  (throw+ (into machine {:failure :state :which state})))
+                ;; FSM is totally missing its current state.
+                ;; This is a fairly serious error under any circumstances.
+                (throw+ (into machine {:failure :missing :which :state}))))))
+
+(defn start
   "Brings a dead FSM to life"
-  [fsm]
+  [fsm initial-state]
+  
+  ;; FIXME: Use clojure.contract instead!
+  {:pre [(= (:state fsm) :__dead)]}  
   (println "Trying to bring " fsm " to life")
-  (send fsm (fn [current]
-              ;; FIXME: Use clojure.contract instead!
-              {:pre [(= (:state current) :dead)]}
-              {:state :new-born}))
-  nil)
 
-(defn stop!
+  ;; Special case. Can't actually use transition! because it doesn't
+  ;; know how to bring a dead FSM to life.
+  (send fsm (fn [current]
+              (into current {:state initial-state}))))
+
+(defn current-state [fsm]
+  ;; This seems more than a little silly.
+  ;; But it fits in with keeping this a block box that allows me
+  ;; to swap implementation in and out.
+  ;; Just because clojure doesn't do things like data hiding
+  ;; doesn't mean I should avoid it when it makes sense.
+  (:state @fsm))
+
+(defn stop
   "Kill an FSM"
   [fsm]
   (send fsm (fn [_]
-              {:state :dead})))
+              {:state :__dead}))
+  fsm)

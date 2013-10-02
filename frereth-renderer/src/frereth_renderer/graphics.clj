@@ -43,19 +43,58 @@ Baby steps."
   
   state)
 
+(defn init-fsm []
+  (fsm/init {:disconnected
+             {:client-connect-without-server
+              [nil :waiting-for-server]}
+             {:client-connect-with-server
+              [nil :waiting-for-home-page]}
+             {:client-connect-with-home-page
+              [nil :main-life]}}
+            {:waiting-for-server
+             {:client-disconnect
+              [nil :disconnected]}}
+            {:server-connected
+             {:waiting-for-home-page
+              [nil :main-life]
+              :client-disconnect
+              [nil :disconnected]}}
+            {:main-life
+             {:client-disconnect
+              [nil :disconnected]}}))
+
 (defn init
   "Set up the 'main' window.
 In the Stuart Sierra workflow-reloaded parlance, this is probably more of a start!"
-  [params]
-  (fsm/start! (:fsm params))
-  (let [state (init-window params)]
-    (init-gl state)))
+  ([]
+     ;; TODO: Surely there are some default parameters that make sense.
+     (init {}))
+  ([params]
+      (comment (fsm/start! (:fsm params)))
+      (let [renderer-state (init-window params)
+            system-state (init-fsm)]
+        {:renderer renderer-state
+         :fsm system-state})))
 
-(defn stop! [universe]
+(defn start [universe]
+  (let [graphics (:graphics universe)
+        renderer-state (:renderer graphics)
+        windowing-state (init-gl renderer-state)
+        fsm (fsm/start (:fsm graphics) :disconnected)]
+    (into universe {:graphics {:renderer windowing-state
+                               :fsm fsm}})))
+
+(defn stop [universe]
   ;; FIXME: Is there anything I can do here?
   ;; (That's a pretty vital requirement)
   (comment (Display/destroy))
-  (fsm/stop! (:fsm universe)))
+  (into universe
+        ;; Very tempting to close the window. Actually,
+        ;; really must do that if I want to reclaim resources
+        ;; so I can reset them.
+        ;; That means expanding penumbra's API.
+        ;; TODO: Make that happen.
+        (fsm/stop (-> universe :graphics :fsm))))
 
 ;;; Drawing
 
@@ -139,7 +178,9 @@ In the Stuart Sierra workflow-reloaded parlance, this is probably more of a star
 
 (defn fps->millis
   "Silly utilitiy function. At x frames per second, each individual
-frame should be on the screen for y milliseconds."
+frame should be on the screen for y milliseconds.
+FIXME: This should go away completely. Penumbra already has
+utility functions that handle this better."
   [fps]
   (Math/round (float (* (/ 1 fps) 1000))))
 
@@ -148,6 +189,9 @@ frame should be on the screen for y milliseconds."
 (defn run-splash
   "Show an initial splash screen while we're waiting for something interesting."
   [params]
+  ;; Seriously. Switch to taking advantage of the FSM
+  (throw (RuntimeException. "Obsolete method"))
+
   ;; Try to read from controller. Use an alt with a 60 FPS timeout.
   ;; This function shouldn't last long at all.
   (let [initial-time (System/currentTimeMillis)
@@ -195,8 +239,7 @@ frame should be on the screen for y milliseconds."
   (throw (RuntimeException. "Not Implemented")))
 
 (defn display
-  "As near as I can tell, this draws the next frame.
-Which pretty much turns my original approach right on its ear."
+  "Draw the next frame."
   [[delta time] state]
   ;; In a nutshell, I need an FSM:
   ;; 1) Show basic splash
@@ -215,12 +258,14 @@ Which pretty much turns my original approach right on its ear."
 (defn begin
   "Actual graphics thread where everything interesting happens."
   [visual-details]
-  (app/start
-   {:init init
-    :display display
-    :reshape reshape}
-   visual-details)
+  (let [main-window 
+        (app/start
+         {:init init
+          :display display
+          :reshape reshape}
+         visual-details)])
 
+  ;; FIXME: Use an async channel to manipulate FSM transitions instead.
   (run-splash visual-details)
 
   ;; Except that this is an extremely wrong approach.
