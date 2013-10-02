@@ -77,9 +77,12 @@ java.library.path and that's good enough."
   :plugins [[lein-git-deps "0.0.1-SNAPSHOT"]]
   :profiles {:uberjar {:aot :all}
              :dev {:source-paths ["dev"]
-                   :dependencies  [[org.clojure/tools.namespace "0.2.3"]
-                                  [org.clojure/java.classpath "0.2.0"]
-                                  [org.clojure/tools.logging "0.2.6"]]}}
+                   :dependencies  [[midje "1.5.1"]
+                                   [org.clojure/tools.namespace "0.2.3"]
+                                   [org.clojure/java.classpath "0.2.0"]
+                                   ;; Umm...do I really not want this for
+                                   ;; real??
+                                   [org.clojure/tools.logging "0.2.6"]]}}
   :main frereth-renderer.core
 
   ;; One was needed for core.async.
