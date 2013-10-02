@@ -1,7 +1,9 @@
 (ns frereth-renderer.graphics
   (:require [clojure.core.async :as async]
+            [clojure.pprint :refer (pprint)]
             [frereth-renderer.fsm :as fsm]
             [penumbra.app :as app]
+            [penumbra.app.core :as core]
             [penumbra.opengl :as gl])
   (:gen-class))
 
@@ -22,7 +24,14 @@ This approach is more than a little dumb...should really be able to create full-
 windows that fill multiple monitors.
 Baby steps. I'm just trying to get that rope thrown across the gorge."
   [{:keys [width height title] :as state}]
-  (app/vsync! true)
+  (pprint state)
+  ;; Have to pass in the window in question.
+  ;; As annoying as it is, that's the way Protocols work.
+  ;; Changing something that basic in Penumbra means very
+  ;; breaking API changes. Probably doesn't matter, since I
+  ;; seriously doubt anyone else is using this. But not
+  ;; something that I have time for just now.
+  (comment (app/vsync! nil true))
 
   ;; These don't seem to have penumbra equivalents (though that's probably just
   ;; because I haven't dug deep enough yet).
@@ -46,20 +55,20 @@ Baby steps."
 (defn init-fsm []
   (fsm/init {:disconnected
              {:client-connect-without-server
-              [nil :waiting-for-server]}
-             {:client-connect-with-server
-              [nil :waiting-for-home-page]}
-             {:client-connect-with-home-page
-              [nil :main-life]}}
-            {:waiting-for-server
+              [nil :waiting-for-server]
+              :client-connect-with-server
+              [nil :waiting-for-home-page]
+              :client-connect-with-home-page
+              [nil :main-life]}
+             :waiting-for-server
              {:client-disconnect
-              [nil :disconnected]}}
-            {:server-connected
+              [nil :disconnected]}
+             :server-connected
              {:waiting-for-home-page
               [nil :main-life]
               :client-disconnect
-              [nil :disconnected]}}
-            {:main-life
+              [nil :disconnected]}
+             :main-life
              {:client-disconnect
               [nil :disconnected]}}))
 
@@ -67,10 +76,12 @@ Baby steps."
   "Set up the 'main' window.
 In the Stuart Sierra workflow-reloaded parlance, this is probably more of a start!"
   ([]
-     ;; TODO: Surely there are some default parameters that make sense.
+     ;; Surely there are some default parameters that make sense.
+     ;; They should really come from whatever's doing the init, though.
+     ;; Or maybe it should be a mixture of both. Whatever. Worry about
+     ;; it later.
      (init {}))
   ([params]
-      (comment (fsm/start! (:fsm params)))
       (let [renderer-state (init-window params)
             system-state (init-fsm)]
         {:renderer renderer-state
@@ -87,14 +98,20 @@ In the Stuart Sierra workflow-reloaded parlance, this is probably more of a star
 (defn stop [universe]
   ;; FIXME: Is there anything I can do here?
   ;; (That's a pretty vital requirement)
-  (comment (Display/destroy))
   (into universe
         ;; Very tempting to close the window. Actually,
         ;; really must do that if I want to reclaim resources
         ;; so I can reset them.
         ;; That means expanding penumbra's API.
         ;; TODO: Make that happen.
-        (fsm/stop (-> universe :graphics :fsm))))
+        (fsm/stop (-> universe :graphics :fsm)))
+  ;; FIXME: It would be much better to pass in the actual window(s)
+  ;; that I want to destroy.
+  ;; Then again, that may be totally pointless until/if lwjgl
+  ;; gets around to actually switching to that sort of API.
+  ;; This is the sort of quandary that makes me wish jogl were
+  ;; less finicky about getting installed.
+  (core/destroy! universe))
 
 ;;; Drawing
 
@@ -108,14 +125,11 @@ In the Stuart Sierra workflow-reloaded parlance, this is probably more of a star
   state)
 
 (defn draw-basic-triangles
-  [{:keys [width height angle]}
+  [{:keys [width height angle] :or {width 1 height 1 angle 0}}
    drawer]
+  (pprint [width height angle drawer])
   (let [w2 (/ width 2.0)
         h2 (/ height 2.0)]
-    ;; More stuff that penumbra seems to have made obsolete.
-    ;; Kind of desperately need to learn it.
-    (comment (gl/glClear (bit-or GL11/GL_COLOR_BUFFER_BIT GL11/GL_DEPTH_BUFFER_BIT))
-             (gl/glLoadIdentity))
     (gl/translate w2 h2 0)
     (gl/rotate angle 0 0 1)
     (gl/scale 2 2 1)
@@ -146,17 +160,33 @@ In the Stuart Sierra workflow-reloaded parlance, this is probably more of a star
                [vertex1 vertex2 vertex3])))]
     (draw-basic-triangles params minimalist-triangle)))
 
+(defn draw-dead
+  "Initializing...absolutely nothing interesting has happened yet"
+  [params]
+  ;; FIXME: Fill the screen with whitespace, or something vaguely
+  ;; interesting
+  (draw-splash-triangle params 0.25))
+
 (defn draw-initial-splash
+  "Rendering subsystem is up and ready to go. Waiting to hear from the client."
   [params]
   (draw-splash-triangle params 1.0))
 
 (defn draw-secondary-splash
+  "Have connected to the client. Waiting to hear back from the server"
   [params]
   (let [angle (:angle params)
         radians (Math/toRadians angle)
         cos (Math/cos radians)
         intensity (Math/abs cos)]
     (draw-splash-triangle params intensity)))
+
+(defn draw-final-splash
+  "Client's connected to the server. Just waiting for the handshake to
+finish so we can start drawing whatever the server wants."
+  [params]
+  (draw-secondary-splash (into params
+                               {:angle (* (:angle params) 2)})))
 
 (defn update-initial-splash
   [{:keys [width height angle last-time] :as params}]
@@ -236,7 +266,12 @@ utility functions that handle this better."
                                                               value)))))))))))))))
 
 (defn draw-unknown-state [params]
-  (throw (RuntimeException. "Not Implemented")))
+  ;; FIXME: Do something better here.
+  ;; Think Sad Mac or BSOD.
+  (throw (RuntimeException. (str "Unknown State: " params))))
+
+(defn draw-main [params]
+  (throw (RuntimeException. "Draw whatever the client has told us to!")))
 
 (defn display
   "Draw the next frame."
@@ -249,11 +284,13 @@ utility functions that handle this better."
   ;; A: Well, pretty definitely not like this.
   (let [drawer
         (condp = (:state @(:fsm state))
-          :initial-splash draw-initial-splash 
+          :__dead draw-dead
+          :disconnected draw-initial-splash
+          :waiting-for-server draw-secondary-splash
+          :server-connected draw-final-splash
+          :main-life draw-main
           draw-unknown-state)]
     (drawer state)))
-
-
 
 (defn begin
   "Actual graphics thread where everything interesting happens."
