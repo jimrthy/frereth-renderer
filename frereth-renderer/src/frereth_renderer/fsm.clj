@@ -41,30 +41,32 @@ That part is extremely easy to abuse and should almost definitely
 go away.
 OTOH...it can be extremely convenient"
   [fsm transition-key & error-if-unknown]
-  (send fsm (fn [machine]
-              (if-let [{:keys [state] as machine} machine]
-                (if-let [transitions (state machine)]
+  (send fsm (fn [prev]
+              (if-let [{:keys [state] :as machine} prev]
+                (if-let [transitions (state prev)]
                   (if-let [[side-effect updated] (transitions transition-key)]
                     (do
                       (when side-effect
                         (side-effect))
                       ;; Success!
-                      (into machine {:state state}))
+                      (comment (println "Switching from " (:state prev) " to " updated))
+                      (into prev {:state updated}))
                     (when error-if-unknown
-                      (throw+ (into machine {:failure :transition :which transition-key}))))
+                      ;; Note that this will put the agent into an error state.
+                      (throw+ (into prev {:failure :transition :which transition-key}))))
                   ;; FSM doesn't know anything about its current state.
                   ;; Not really any way around this either
-                  (throw+ (into machine {:failure :state :which state})))
+                  (throw+ (into prev {:failure :state :which state})))
                 ;; FSM is totally missing its current state.
                 ;; This is a fairly serious error under any circumstances.
-                (throw+ (into machine {:failure :missing :which :state}))))))
+                (throw+ (into prev {:failure :missing :which :state}))))))
 
 (defn start
   "Brings a dead FSM to life"
   [fsm initial-state]
   
   ;; FIXME: Use clojure.contract instead!
-  {:pre [(= (:state fsm) :__dead)]}  
+  {:pre [(= (:state @fsm) :__dead)]}  
   (println "Trying to bring " fsm " to life")
 
   ;; Special case. Can't actually use transition! because it doesn't
@@ -78,11 +80,19 @@ OTOH...it can be extremely convenient"
   ;; to swap implementation in and out.
   ;; Just because clojure doesn't do things like data hiding
   ;; doesn't mean I should avoid it when it makes sense.
-  (:state @fsm))
+  (if-let [ex (agent-error fsm)]
+    ex
+    (:state @fsm)))
+
+(defn clear-error [fsm]
+  (restart-agent fsm (dissoc (:state @fsm) {:failure :which})))
 
 (defn stop
   "Kill an FSM"
   [fsm]
   (send fsm (fn [_]
               {:state :__dead}))
+  ;; FIXME: Do I want to also run:
+  (comment (shutdown-agents))
+  ;; ?
   fsm)

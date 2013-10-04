@@ -111,6 +111,9 @@ In the Stuart Sierra workflow-reloaded parlance, this is probably more of a star
   ;; gets around to actually switching to that sort of API.
   ;; This is the sort of quandary that makes me wish jogl were
   ;; less finicky about getting installed.
+  ;; I don't think I want this.
+  ;; TODO: The app has a :destroy! key that points to a function
+  ;; that looks suspiciously as though it's what I actually want.
   (core/destroy! universe))
 
 ;;; Drawing
