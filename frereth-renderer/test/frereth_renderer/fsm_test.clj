@@ -1,5 +1,6 @@
 (ns frereth-renderer.fsm-test
-  (:require [frereth-renderer.fsm :as fsm])
+  (:require [frereth-renderer.fsm :as fsm]
+            [clojure.pprint :refer [pprint]])
   (:use midje.sweet))
 
 (facts "From a bingo game:"
@@ -84,12 +85,18 @@
                (Thread/sleep 100)
                (fsm/current-state m) => :initialized)
 
-         ;; Unit tests are passing up to here. I suspect the problem is
-         ;; that I don't truly understand how slingshot works yet.
          (fact "Illegal Transition"
                (fsm/transition! m :illegal true)
                (Thread/sleep 100)
-               (fsm/current-state m) => (contains {:failure :transition :which :illegal}))
+               (let [s (fsm/current-state m)]
+                 (comment
+                   (do
+                     (println "Result of current-state:\n'")
+                     (pprint s)
+                     (println "'\nAnd that's all I have to say about that")))
+                 
+                 (:object s) => 
+                 (contains {:failure :transition :which :illegal})))
 
          (fact "Clear Error"
                (fsm/clear-error m)

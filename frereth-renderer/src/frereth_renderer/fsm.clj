@@ -31,7 +31,9 @@ an extremely rich API for cheap.
 TODO: Would core.async be more appropriate than agents?"
   [description]
   ;; The simplest thing that could possibly work
-  (agent (into description {:state :__dead})))
+  (let [a (agent (into description {:state :__dead}))]
+    (set-error-mode! a :fail)
+    a))
 
 (defn transition!
   "Sends a transition request.
@@ -51,9 +53,12 @@ OTOH...it can be extremely convenient"
                       ;; Success!
                       (comment (println "Switching from " (:state prev) " to " updated))
                       (into prev {:state updated}))
-                    (when error-if-unknown
-                      ;; Note that this will put the agent into an error state.
-                      (throw+ (into prev {:failure :transition :which transition-key}))))
+                    (if error-if-unknown
+                      (do
+                        (comment (println "Set to error out on illegal transition"))
+                        ;; Note that this should put the agent into an error state.
+                        (throw+ (into prev {:failure :transition :which transition-key})))
+                      (comment (println "Ignoring illegal transition"))))
                   ;; FSM doesn't know anything about its current state.
                   ;; Not really any way around this either
                   (throw+ (into prev {:failure :state :which state})))
@@ -67,7 +72,7 @@ OTOH...it can be extremely convenient"
   
   ;; FIXME: Use clojure.contract instead!
   {:pre [(= (:state @fsm) :__dead)]}  
-  (println "Trying to bring " fsm " to life")
+  (comment (println "Trying to bring " fsm " to life"))
 
   ;; Special case. Can't actually use transition! because it doesn't
   ;; know how to bring a dead FSM to life.
@@ -81,11 +86,16 @@ OTOH...it can be extremely convenient"
   ;; Just because clojure doesn't do things like data hiding
   ;; doesn't mean I should avoid it when it makes sense.
   (if-let [ex (agent-error fsm)]
-    ex
-    (:state @fsm)))
+    (do
+      (comment (println "Agent is in an error state"))
+      (.data ex))
+    (let [m @fsm]
+      (comment (println "Agent state is just fine, thank you"))
+      (:state m))))
 
 (defn clear-error [fsm]
-  (restart-agent fsm (dissoc (:state @fsm) {:failure :which})))
+  (let [state @fsm]
+    (restart-agent fsm (dissoc state :failure :which))))
 
 (defn stop
   "Kill an FSM"
