@@ -29,13 +29,16 @@ java.library.path and that's good enough."
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
 
+  ;; Big swaths of these are only needed because I haven't found the time
+  ;; to properly configure my local maven repo.
   :dependencies [[byte-transforms "0.1.0"]
-                 [kephale/cantor "0.4.1"] ; I wonder what this is for
+                 [kephale/cantor "0.4.1"] ; Obsolete math optimization library
                  [kephale/lwjgl "2.9.0"]
                  [kephale/lwjgl-util "2.9.0"]
                  [kephale/lwjgl-natives "2.9.0"]
                  [org.clojure/clojure "1.5.1"]
                  [org.clojure/core.async "0.1.222.0-83d0c2-alpha"]
+                 [org.clojure/core.contracts "0.0.5"]
                  [org.clojure/math.combinatorics "0.0.2"]
                  [org.jeromq/jeromq "0.3.0-SNAPSHOT"]
                  [org.zeromq/cljzmq "0.1.1" :exclusions [org.zeromq/jzmq]]

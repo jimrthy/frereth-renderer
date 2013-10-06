@@ -1,5 +1,6 @@
 (ns frereth-renderer.fsm
   (:require [clojure.core.async :as async]
+            [clojure.core.contracts :as contract]
             [slingshot.slingshot :refer [throw+]])
   (:gen-class))
 
@@ -44,6 +45,7 @@ go away.
 OTOH...it can be extremely convenient"
   [fsm transition-key & error-if-unknown]
   (send fsm (fn [prev]
+              ;; Wow. This just seems incredibly ugly.
               (if-let [{:keys [state] :as machine} prev]
                 (if-let [transitions (state prev)]
                   (if-let [[side-effect updated] (transitions transition-key)]
@@ -66,18 +68,20 @@ OTOH...it can be extremely convenient"
                 ;; This is a fairly serious error under any circumstances.
                 (throw+ (into prev {:failure :missing :which :state}))))))
 
-(defn start
-  "Brings a dead FSM to life"
-  [fsm initial-state]
-  
-  ;; FIXME: Use clojure.contract instead!
-  {:pre [(= (:state @fsm) :__dead)]}  
-  (comment (println "Trying to bring " fsm " to life"))
+(def start
+  (contract/with-constraints
+    (fn [fsm initial-state]
+      ;; Special case. Can't actually use transition! because it doesn't
+      ;; know how to bring a dead FSM to life.
+      (send fsm (fn [current]
+                  (into current {:state initial-state}))))
 
-  ;; Special case. Can't actually use transition! because it doesn't
-  ;; know how to bring a dead FSM to life.
-  (send fsm (fn [current]
-              (into current {:state initial-state}))))
+    (contract/contract dont-revive-living
+              "Brings a dead FSM to life"
+              [fsm initial-state]
+              [(= (:state @fsm) :__dead)
+               =>
+               (= initial-state %)])))
 
 (defn current-state [fsm]
   ;; This seems more than a little silly.
