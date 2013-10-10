@@ -23,6 +23,23 @@ java.library.path and that's good enough."
               ;; Error out ASAP to get this covered.
               (throw (RuntimeException. (str "Unknown environment: " sys-name)))))))
 
+
+;; Was needed for dealing with git-dependencies.
+;;  :source-paths
+(comment ["src" 
+          ".lein-git-deps/penumbra/src/"
+          ".lein-git-deps/cljeromq/src/"])
+;; FIXME: These should go away.
+;;:git-dependencies
+(comment [["git@github.com:jimrthy/penumbra.git"]
+          ["git@github.com:jimrthy/cljeromq.git"]])
+
+;; Dependencies which are (at least hopefully) obsolete
+(comment [kephale/cantor "0.4.1"] ; Obsolete math optimization library
+         [kephale/lwjgl "2.9.0"]
+         [kephale/lwjgl-util "2.9.0"]
+         [kephale/lwjgl-natives "2.9.0"])
+
 (defproject frereth-renderer "0.0.1-SNAPSHOT"
   :description "A renderer suitable for frereth, clojure style."
   :url "http://example.com/FIXME"
@@ -32,10 +49,8 @@ java.library.path and that's good enough."
   ;; Big swaths of these are only needed because I haven't found the time
   ;; to properly configure my local maven repo.
   :dependencies [[byte-transforms "0.1.0"]
-                 [kephale/cantor "0.4.1"] ; Obsolete math optimization library
-                 [kephale/lwjgl "2.9.0"]
-                 [kephale/lwjgl-util "2.9.0"]
-                 [kephale/lwjgl-natives "2.9.0"]
+                 [jimrthy/cljeromq "0.1.0-SNAPSHOT"]
+                 [jimrthy/penumbra "0.6.5-SNAPSHOT"]
                  [org.clojure/clojure "1.5.1"]
                  [org.clojure/core.async "0.1.222.0-83d0c2-alpha"]
                  [org.clojure/core.contracts "0.0.5"]
@@ -66,18 +81,14 @@ java.library.path and that's good enough."
                  [simplecs "0.1.0"]
                  [slick-util "1.0.0"]
                  [slingshot "0.10.3"]]
-  ;; FIXME: These should go away.
-  :git-dependencies [["git@github.com:jimrthy/penumbra.git"]
-                     ["git@github.com:jimrthy/cljeromq.git"]]
-  :source-paths ["src" 
-                 ".lein-git-deps/penumbra/src/"
-                 ".lein-git-deps/cljeromq/src/"]
   ;; Needed to get to lwjgl native libs...is this still true w/ penumbra?
   ;; Actually, since leiningen 2.1.0, probably not. This next entry seems
   ;; to be totally obsolete.
   :jvm-opts [~(str "-Djava.library.path=native/:"
                    (System/getProperty "java.library.path"))]
-  :plugins [[lein-git-deps "0.0.1-SNAPSHOT"]]
+  :main frereth-renderer.core
+
+  ;;:plugins [[lein-git-deps "0.0.1-SNAPSHOT"]]
   :profiles {:uberjar {:aot :all}
              :dev {:source-paths ["dev"]
                    :dependencies  [[midje "1.5.1"]
@@ -90,10 +101,10 @@ java.library.path and that's good enough."
                    ;; c.f. https://gist.github.com/MichaelDrogalis/6638777
                    :injections [(require 'night-vision.goggles)
                                 (require 'clojure.pprint)]}}
-  :main frereth-renderer.core
-
   ;; One was needed for core.async.
   ;; I think the other's for jeromq.
   ;; FIXME: these are both experimental repos and should go away.
   :repositories {"sonatype-oss-public" "https://oss.sonatype.org/content/groups/public/"
-                 "sonatype-nexus-snapshots" "https://oss.sonatype.org/content/repositories/snapshots"})
+                 "sonatype-nexus-snapshots" "https://oss.sonatype.org/content/repositories/snapshots"
+                 ;;"local" "file:///home/james/repo"
+                 })
