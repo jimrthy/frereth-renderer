@@ -81,11 +81,15 @@ java.library.path and that's good enough."
   :profiles {:uberjar {:aot :all}
              :dev {:source-paths ["dev"]
                    :dependencies  [[midje "1.5.1"]
+                                   [night-vision "0.1.0-SNAPSHOT"]
                                    [org.clojure/tools.namespace "0.2.3"]
                                    [org.clojure/java.classpath "0.2.0"]
                                    ;; Umm...do I really not want this for
                                    ;; real??
-                                   [org.clojure/tools.logging "0.2.6"]]}}
+                                   [org.clojure/tools.logging "0.2.6"]]
+                   ;; c.f. https://gist.github.com/MichaelDrogalis/6638777
+                   :injections [(require 'night-vision.goggles)
+                                (require 'clojure.pprint)]}}
   :main frereth-renderer.core
 
   ;; One was needed for core.async.
