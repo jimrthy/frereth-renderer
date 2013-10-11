@@ -35,7 +35,7 @@ java.library.path and that's good enough."
           ["git@github.com:jimrthy/cljeromq.git"]])
 
 ;; Dependencies which are (at least hopefully) obsolete
-(comment [kephale/cantor "0.4.1"] ; Obsolete math optimization library
+(comment 
          [kephale/lwjgl "2.9.0"]
          [kephale/lwjgl-util "2.9.0"]
          [kephale/lwjgl-natives "2.9.0"])
@@ -51,6 +51,10 @@ java.library.path and that's good enough."
   :dependencies [[byte-transforms "0.1.0"]
                  [jimrthy/cljeromq "0.1.0-SNAPSHOT"]
                  [jimrthy/penumbra "0.6.5-SNAPSHOT"]
+                 [kephale/cantor "0.4.1"] ; Deprecated math optimization library
+                 [kephale/lwjgl "2.9.0"]
+                 [kephale/lwjgl-natives "2.9.0"]
+                 [kephale/lwjgl-util "2.9.0"]
                  [org.clojure/clojure "1.5.1"]
                  [org.clojure/core.async "0.1.222.0-83d0c2-alpha"]
                  [org.clojure/core.contracts "0.0.5"]
