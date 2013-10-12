@@ -119,9 +119,17 @@ In the Stuart Sierra workflow-reloaded parlance, this is probably more of a star
   ;; that looks suspiciously as though it's what I actually want.
   (core/destroy! universe))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
 ;;; Drawing
+;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn reshape [[x y w h] state]
+(defn reshape
+  "Should get called every time the window changes size.
+For that matter, it should probably get called every time the window
+changes position. In practice, it almost never seems to get called."
+  [[x y w h] state]
   ;; FIXME: This fixed camera isn't appropriate at all.
   ;; It really needs to be set for whichever window is currently active.
   ;; But it's a start.
@@ -133,6 +141,7 @@ In the Stuart Sierra workflow-reloaded parlance, this is probably more of a star
 (defn draw-basic-triangles
   [{:keys [width height angle] :or {width 1 height 1 angle 0}}
    drawer]
+  (println "Drawing a Basic Triangle")
   (pprint [width height angle drawer])
   (let [w2 (/ width 2.0)
         h2 (/ height 2.0)]
@@ -195,6 +204,7 @@ finish so we can start drawing whatever the server wants."
                                {:angle (* (:angle params) 2)})))
 
 (defn update-initial-splash
+  "Rotate the triangle periodically"
   [{:keys [width height angle last-time] :as params}]
   (let [cur-time (System/currentTimeMillis)
         delta-time (- cur-time last-time)
@@ -222,54 +232,55 @@ utility functions that handle this better."
 
 ;; FIXME: This next function is almost totally obsolete. Except that I desperately
 ;; need something to track the FSM.
-(defn run-splash
-  "Show an initial splash screen while we're waiting for something interesting."
-  [params]
-  ;; Seriously. Switch to taking advantage of the FSM
-  (throw (RuntimeException. "Obsolete method"))
+;; IOW: keep the code around until I get it refactored into actually making that work.
+(comment (defn run-splash
+           "Show an initial splash screen while we're waiting for something interesting."
+           [params]
+           ;; Seriously. Switch to taking advantage of the FSM
+           (throw (RuntimeException. "Obsolete method"))
 
-  ;; Try to read from controller. Use an alt with a 60 FPS timeout.
-  ;; This function shouldn't last long at all.
-  (let [initial-time (System/currentTimeMillis)
-        frame-length  (fps->millis 60)
-        controller (:controller params)]
-    (loop [params (into params {:update-function update-initial-splash
-                                :draw-function draw-initial-splash
-                                :last-time initial-time
-                                :angle 0.0})]
-      ;; Just eliminate this next block for now.
-      ;; I want the state manipulation pieces of it, but not the way
-      ;; that's tied into drawing.
-      (comment (when (not (Display/isCloseRequested))
-                 (let [updated-params (update params)]
-                   (Display/update)
-                   ;; Q: Do I really want to create a new timeout each frame?
-                   ;; A: Must. timeout involves an absolute value after the
-                   ;; channel is created.
-                   (let [next-frame (async/timeout frame-length)]
-                     (let [[value channel] 
-                           (async/alts!! [controller next-frame])]
-                       ;; If the channel actually closed, something bad has happened.
-                       ;; TODO: is that true?
+           ;; Try to read from controller. Use an alt with a 60 FPS timeout.
+           ;; This function shouldn't last long at all.
+           (let [initial-time (System/currentTimeMillis)
+                 frame-length  (fps->millis 60)
+                 controller (:controller params)]
+             (loop [params (into params {:update-function update-initial-splash
+                                         :draw-function draw-initial-splash
+                                         :last-time initial-time
+                                         :angle 0.0})]
+               ;; Just eliminate this next block for now.
+               ;; I want the state manipulation pieces of it, but not the way
+               ;; that's tied into drawing.
+               (comment (when (not (Display/isCloseRequested))
+                          (let [updated-params (update params)]
+                            (Display/update)
+                            ;; Q: Do I really want to create a new timeout each frame?
+                            ;; A: Must. timeout involves an absolute value after the
+                            ;; channel is created.
+                            (let [next-frame (async/timeout frame-length)]
+                              (let [[value channel] 
+                                    (async/alts!! [controller next-frame])]
+                                ;; If the channel actually closed, something bad has happened.
+                                ;; TODO: is that true?
 
-                       ;; I expect this to mostly timeout. What is value then?
-                       (if (= channel next-frame)
-                         (do
-                           ;; Waiting
-                           (recur updated-params))
-                         (do
-                           ;; TODO: Be smarter about different values.
-                           ;; (i.e. Different messages mean different things to
-                           ;; the FSM).
-                           ;; Probably want an explicit state machine here.
-                           (if (= value :sterile-environment)
-                             (recur (into updated-params 
-                                          {:draw-function draw-secondary-splash}))
-                             (do
-                               ;; I am going to have to handle this...it's where
-                               ;; life starts to get interesting.
-                               (throw (RuntimeException. (str "Unhandled transition:"
-                                                              value)))))))))))))))
+                                ;; I expect this to mostly timeout. What is value then?
+                                (if (= channel next-frame)
+                                  (do
+                                    ;; Waiting
+                                    (recur updated-params))
+                                  (do
+                                    ;; TODO: Be smarter about different values.
+                                    ;; (i.e. Different messages mean different things to
+                                    ;; the FSM).
+                                    ;; Probably want an explicit state machine here.
+                                    (if (= value :sterile-environment)
+                                      (recur (into updated-params 
+                                                   {:draw-function draw-secondary-splash}))
+                                      (do
+                                        ;; I am going to have to handle this...it's where
+                                        ;; life starts to get interesting.
+                                        (throw (RuntimeException. (str "Unhandled transition:"
+                                                                       value))))))))))))))))
 
 (defn draw-unknown-state [params]
   ;; FIXME: Do something better here.
@@ -288,35 +299,61 @@ utility functions that handle this better."
   ;; 3) When the client starts telling us what to draw, switch to that.
   ;; Q: What does that actually look like?
   ;; A: Well, pretty definitely not like this.
-  (let [drawer
-        (condp = (:state @(:fsm state))
+  (let [state (:state @(:fsm state))
+        drawer
+        (condp = state
           :__dead draw-dead
           :disconnected draw-initial-splash
           :waiting-for-server draw-secondary-splash
           :server-connected draw-final-splash
           :main-life draw-main
           draw-unknown-state)]
-    (drawer state)))
+    (trace "Current Situation: " state)
+    (drawer state)
+
+    ;; Signal to refresh and redraw the next frame.
+    ;; Overall, I probably don't want to do this. There will be
+    ;; screens that are basically static and don't need to be redrawn
+    ;; very often.
+    ;; That's an optimization for the future. For now, I need to get
+    ;; something minimalist working.
+    (app/repaint!)))
+
+(defn begin-eye-candy-thread
+  [visual-details]
+  "Graphics first and foremost: the user needs eye candy ASAP."
+  (app/start
+   ;; TODO: Need the other callbacks to let the client know what's going on
+   ;; (the Input side of the I/O)
+   {:init init
+    :display display
+    :reshape reshape}
+   visual-details))
+
+(defn begin-communications
+  " Actually updating things isn't as interesting [at first] or [quite]
+as vital...but it's a very close second in both
+categories.
+OTOH, this really belongs elsewhere."
+  [state]
+  (let [control-channel (:controller state)
+        fsm-atom (:fsm state)]
+    (async/go
+     (let [msg (async/<! control-channel)]
+       ;; FIXME: Need a "quit" message.
+       ;; This approach misses quite a few points, I think.
+       ;; This pieces of the FSM should be for very coarsely-
+       ;; grained transitions...
+       ;; then again, maybe my entire picture of the architecture
+       ;; is horribly flawed.
+       ;; TODO: Where's the actual communication happening?
+       ;; All I really care about right here, right now is
+       ;; establishing the heartbeat connection.
+       (fsm/transition! @fsm-atom msg true)))))
 
 (defn begin
-  "Actual graphics thread where everything interesting happens."
+  "Kick off the threads where everything interesting happens."
   [visual-details]
-  (let [main-window 
-        (app/start
-         {:init init
-          :display display
-          :reshape reshape}
-         visual-details)]
 
-    ;; FIXME: Use an async channel to manipulate FSM transitions instead.
-    (run-splash visual-details)
-
-    ;; Except that this is an extremely wrong approach.
-    ;; The FSM should be handling drawing. Being in a state to draw
-    ;; things from the client is certainly more interesting than just
-    ;; doing a sequence of splash screens, but it's pretty much exactly
-    ;; the same from this point of view.
-
-    ;; Which, really, just emphasizes that run-splash needs to go
-    ;; away completely.
-    (throw (RuntimeException. "Now the cool stuff can happen"))))
+  (begin-eye-candy-thread visual-details)
+  (begin-communications (visual-details)))
