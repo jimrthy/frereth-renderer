@@ -24,22 +24,6 @@ java.library.path and that's good enough."
               (throw (RuntimeException. (str "Unknown environment: " sys-name)))))))
 
 
-;; Was needed for dealing with git-dependencies.
-;;  :source-paths
-(comment ["src" 
-          ".lein-git-deps/penumbra/src/"
-          ".lein-git-deps/cljeromq/src/"])
-;; FIXME: These should go away.
-;;:git-dependencies
-(comment [["git@github.com:jimrthy/penumbra.git"]
-          ["git@github.com:jimrthy/cljeromq.git"]])
-
-;; Dependencies which are (at least hopefully) obsolete
-(comment 
-         [kephale/lwjgl "2.9.0"]
-         [kephale/lwjgl-util "2.9.0"]
-         [kephale/lwjgl-natives "2.9.0"])
-
 (defproject frereth-renderer "0.0.1-SNAPSHOT"
   :description "A renderer suitable for frereth, clojure style."
   :url "http://example.com/FIXME"
@@ -62,22 +46,6 @@ java.library.path and that's good enough."
                  [org.jeromq/jeromq "0.3.0-SNAPSHOT"]
                  [org.zeromq/cljzmq "0.1.1" :exclusions [org.zeromq/jzmq]]
                  ;; TODO: An nrepl client?
-
-                 ;;; Actual graphics. Yes, this next section is still a mess.
-                 ;;; Graphics in clojure are messy. That was a major motivation
-                 ;;; for frereth.
-                 ;;[org.clojars.toxi/jogl "2.0.0-rc11"]
-                 ;; N.B. Charles Stain has 3.0 binaries on clojars!
-                 ;;[org.lwjgl.lwjgl/lwjgl "2.9.0"]
-                 ;;[org.lwjgl.lwjgl/lwjgl-platform "2.9.0" 
-                 ;; :classifier ~(native-classification) :native-prefix ""]
-                 ;;[org.lwjgl.lwjgl/lwjgl_util "2.9.0"]
-                 ;; c.f. https://github.com/Syve/lwjgl-test/blob/master/project.clj
-                 ;; (This is just a clj file...can differentiate the platform
-                 ;; at runtime).
-                 ;; Doesn't help with building, but it seems like it'll be 
-                 ;; For now, this is a local git-dep.
-                 ;;[penumbra "0.6.6-SNAPSHOT"]
 
                  ;; FIXME: Is this more appropriate here or in frereth-client?
                  ;; Is it worth an external dependency at all? Especially since

@@ -4,7 +4,9 @@
             [frereth-renderer.fsm :as fsm]
             [penumbra.app :as app]
             [penumbra.app.core :as core]
-            [penumbra.opengl :as gl])
+            [penumbra.opengl :as gl]
+            [taoensso.timbre :as timbre
+             :refer trace debug info warn error fatal spy with-log-level])
   (:gen-class))
 
 ;;; Information
@@ -24,6 +26,7 @@ This approach is more than a little dumb...should really be able to create full-
 windows that fill multiple monitors.
 Baby steps. I'm just trying to get that rope thrown across the gorge."
   [{:keys [width height title] :as state}]
+  (trace "Initializing window")
   (pprint state)
   ;; Have to pass in the window in question.
   ;; As annoying as it is, that's the way Protocols work.
@@ -303,10 +306,17 @@ utility functions that handle this better."
          {:init init
           :display display
           :reshape reshape}
-         visual-details)])
+         visual-details)]
 
-  ;; FIXME: Use an async channel to manipulate FSM transitions instead.
-  (run-splash visual-details)
+    ;; FIXME: Use an async channel to manipulate FSM transitions instead.
+    (run-splash visual-details)
 
-  ;; Except that this is an extremely wrong approach.
-  (throw (RuntimeException. "Now the cool stuff can happen")))
+    ;; Except that this is an extremely wrong approach.
+    ;; The FSM should be handling drawing. Being in a state to draw
+    ;; things from the client is certainly more interesting than just
+    ;; doing a sequence of splash screens, but it's pretty much exactly
+    ;; the same from this point of view.
+
+    ;; Which, really, just emphasizes that run-splash needs to go
+    ;; away completely.
+    (throw (RuntimeException. "Now the cool stuff can happen"))))

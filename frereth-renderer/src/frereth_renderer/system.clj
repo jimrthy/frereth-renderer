@@ -1,14 +1,17 @@
 (ns frereth-renderer.system
-  (:require [clojure.core.async :as async]
+  (:require [cljeromq.core :as mq]
+            [clojure.core.async :as async]
             [frereth-renderer.config :as config]
             [frereth-renderer.fsm :as fsm]
             [frereth-renderer.graphics :as graphics]
-            [cljeromq.core :as mq])
+            [taoensso.timbre :as timbre
+             :refer (trace debug info warn error fatal spy with-log-level)])
   (:gen-class))
 
 (defn init
   "Generate a dead system"
   []
+  (info "INIT")
   {:messaging (atom nil)
    :client-socket (atom nil)
    ;; TODO: Create a "Top Level" window?
@@ -17,12 +20,17 @@
    ;; and loading the library separately into each.
    ;; Seems like overkill...but also an extremely good idea.
    :control-channel (atom nil)
+   :front-end (atom nil)
    :visualizer (atom nil)
    :graphics (graphics/init)})
 
 (defn start
   "Perform the side-effects to bring a dead system to life"
   [universe]
+  ;; FIXME: Debug only
+  (timbre/set-level! :trace)
+
+  (trace "START")
   (let [visualization-channel (async/chan)
         ;; TODO: Don't use magic numbers.
         ;; TODO: Remember window positions from last run and reset them here.
@@ -34,22 +42,27 @@
                          :controller visualization-channel
                          :fsm (:fsm universe)}
         eye-candy (fn []
-                    (graphics/begin visual-details))]
-    (.start (Thread. eye-candy))
+                    (graphics/begin visual-details))
+        ;; TODO: Don't just use raw threads!
+        ;; At the very least, use Java's built-in thread pool.
+        visualization-thread (Thread. eye-candy)]
+    (.start visualization-thread)
     (reset! (:visualizer universe) visualization-channel)
+    (reset! (:front-end universe) visualization-thread)
 
     universe))
 
 (defn stop
   "Perform the side-effects to sterilize a universe"
   [universe]
-  ;; FIXME: switch to real logging
-  (println "Telling the visualizer to exit")
-  ;; Getting a NPE here...what's up with that?
+  (trace "Telling the visualizer to exit")
+  ;; I was originally getting a NPE here.
+  ;; It's gone away.
+  ;; What's up with that?
   (async/>!! @(:visualizer universe) :exiting)
-  (println "Closing the control channel")
+  (trace "Closing the control channel")
   (async/close! @(:control-channel universe))
-  (println "Closing the socket to the client")
+  (trace "Closing the socket to the client")
   (mq/close @(:client-socket universe))
 
   ;; Realistically: want to take some time to allow that socket to wrap
