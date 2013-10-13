@@ -25,8 +25,6 @@
    ;; ...except for projects where they really and truly
    ;; make sense.
 
-   ;; FIXME: What did I really have planned for the rest of these?
-   (comment :control-channel (atom nil))
    :front-end (atom nil)
    :visualizer (atom nil)
    :graphics (graphics/init)})

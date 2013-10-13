@@ -37,6 +37,8 @@ FIXME: This needs to just go away."
       ;; especially) if the client goes away.
       ;; Probably shouldn't be running it like this in the first
       ;; place. Except...what are the better options?
-      (Thread/join @(:front-end world))
+      (.join @(:front-end world))
       ;; Then clean up
+      ;; I'm getting here almost instantly. Meaning that front-end
+      ;; apparently isn't getting set to anything that seems reasonable.
       (finally (sys/stop world)))))

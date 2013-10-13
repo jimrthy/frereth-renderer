@@ -1,5 +1,8 @@
 (ns frereth-renderer.communications
-  (:require [cljeromq.core :as mq])
+  (:require [cljeromq.core :as mq]
+            [clojure.core.async :as async]
+            [taoensso.timbre :as timbre
+             :refer [trace info debug warn error fatal spy with-log-level]])
   (:gen-class))
 
 (defn init
@@ -7,6 +10,8 @@
   (atom nil))
 
 (defn start
+  "N.B. dead-world is an atom.
+TODO: formalize that using something like core.contract"
   [dead-world]
   ;; TODO: It actually might make some sort of sense to have multiple
   ;; threads involved here.
@@ -18,16 +23,17 @@
     ;; FIXME: Whichever. Need an async channel that uses this socket
     ;; to communicate back and forth with the graphics namespace
     ;; to actually implement the UI.
-    (into dead-world {:context ctx
-                      :socket socket
-                      :local-mq (async/chan)})))
+    (reset! dead-world {:context ctx
+                        :socket socket
+                        :local-mq (async/chan)})))
 
 (defn stop!
   [live-world]
-  (let [ctx (:context live-world)
-        socket (:socket live-world)
-        local-async (:local-mq live-world)]
+  (if-let [local-async (:local-mq live-world)]
     (async/close! local-async)
+    (warn "No local async channel...what happened?"))
+  (let [ctx (:context live-world)
+        socket (:socket live-world)]
     (mq/close socket)
     (mq/terminate ctx))
   live-world)

@@ -6,7 +6,7 @@
             [penumbra.app.core :as core]
             [penumbra.opengl :as gl]
             [taoensso.timbre :as timbre
-             :refer trace debug info warn error fatal spy with-log-level])
+             :refer [ trace debug info warn error fatal spy with-log-level]])
   (:gen-class))
 
 ;;; Information
@@ -141,8 +141,8 @@ changes position. In practice, it almost never seems to get called."
 (defn draw-basic-triangles
   [{:keys [width height angle] :or {width 1 height 1 angle 0}}
    drawer]
-  (println "Drawing a Basic Triangle")
-  (pprint [width height angle drawer])
+  (comment (println "Drawing a Basic Triangle")
+           (pprint [width height angle drawer]))
   (let [w2 (/ width 2.0)
         h2 (/ height 2.0)]
     (gl/translate w2 h2 0)
@@ -308,7 +308,7 @@ utility functions that handle this better."
           :server-connected draw-final-splash
           :main-life draw-main
           draw-unknown-state)]
-    (trace "Current Situation: " state)
+    (comment (trace "Current Situation: " state))
     (drawer state)
 
     ;; Signal to refresh and redraw the next frame.
@@ -322,13 +322,15 @@ utility functions that handle this better."
 (defn begin-eye-candy-thread
   [visual-details]
   "Graphics first and foremost: the user needs eye candy ASAP."
-  (app/start
-   ;; TODO: Need the other callbacks to let the client know what's going on
-   ;; (the Input side of the I/O)
-   {:init init
-    :display display
-    :reshape reshape}
-   visual-details))
+  ;; Running this in a future seems more than a little problematic.
+  (future
+    (app/start
+     ;; TODO: Need the other callbacks to let the client know what's going on
+     ;; (the Input side of the I/O)
+     {:init init
+      :display display
+      :reshape reshape}
+     visual-details)))
 
 (defn begin-communications
   " Actually updating things isn't as interesting [at first] or [quite]
@@ -339,7 +341,7 @@ OTOH, this really belongs elsewhere."
   (let [control-channel (:controller state)
         fsm-atom (:fsm state)]
     (async/go
-     (let [msg (async/<! control-channel)]
+     (loop [msg (async/<! control-channel)]
        ;; FIXME: Need a "quit" message.
        ;; This approach misses quite a few points, I think.
        ;; This pieces of the FSM should be for very coarsely-
@@ -349,11 +351,19 @@ OTOH, this really belongs elsewhere."
        ;; TODO: Where's the actual communication happening?
        ;; All I really care about right here, right now is
        ;; establishing the heartbeat connection.
-       (fsm/transition! @fsm-atom msg true)))))
+       (let [next-state (fsm/transition! @fsm-atom msg true)]
+         ;; TODO: I don't think this is really even all that close
+         ;; to what I want.
+         (when-not (= next-state :__dead)
+           (recur (async/<! control-channel))))))))
 
 (defn begin
   "Kick off the threads where everything interesting happens."
   [visual-details]
 
-  (begin-eye-candy-thread visual-details)
-  (begin-communications (visual-details)))
+  ;; TODO: Does this thread just go away when this goes out of scope?
+  (let [main-graphics-thread
+        (begin-eye-candy-thread visual-details)])
+  (trace "Graphics thread has begun")
+  (begin-communications visual-details)
+  (trace "Communications begun"))
