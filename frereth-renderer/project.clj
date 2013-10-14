@@ -73,10 +73,9 @@ java.library.path and that's good enough."
                    ;; c.f. https://gist.github.com/MichaelDrogalis/6638777
                    :injections [(require 'night-vision.goggles)
                                 (require 'clojure.pprint)]}}
+  :repl-options {:init-ns user}
+  ;; FIXME: these are both experimental repos and should go away.
   ;; One was needed for core.async.
   ;; I think the other's for jeromq.
-  ;; FIXME: these are both experimental repos and should go away.
   :repositories {"sonatype-oss-public" "https://oss.sonatype.org/content/groups/public/"
-                 "sonatype-nexus-snapshots" "https://oss.sonatype.org/content/repositories/snapshots"
-                 ;;"local" "file:///home/james/repo"
-                 })
+                 "sonatype-nexus-snapshots" "https://oss.sonatype.org/content/repositories/snapshots"})

@@ -1,5 +1,6 @@
 (ns frereth-renderer.core
-  (:require [frereth-renderer.graphics :as graphics]
+  (:require [clojure.core.async :as async]
+   [frereth-renderer.graphics :as graphics]
             [frereth-renderer.system :as sys]
             [taoensso.timbre :as timbre
              :refer [trace debug info warn error fatal spy with-log-level]])
@@ -28,7 +29,6 @@ FIXME: This needs to just go away."
   (let [dead-world (sys/init)
         world (sys/start dead-world)]
     (try
-      (comment (fsm world))
       ;; Wait for this to exit.
       ;; This approach seems horribly wrong.
       ;; Honestly, the client should tell it to exit when it sends a
@@ -37,7 +37,16 @@ FIXME: This needs to just go away."
       ;; especially) if the client goes away.
       ;; Probably shouldn't be running it like this in the first
       ;; place. Except...what are the better options?
-      (.join @(:front-end world))
+      ;; Currently, this thread should be a future. So should be
+      ;; able to just deref it to get everything to pause here.
+      (info "Waiting on the front-end thread to exit. Value in the atom:\n"
+            #_(:front-end world))
+      (comment (.join @(:front-end world)))
+      (comment (deref @(:front-end world)))
+      (let [terminal-channel (-> world :messaging deref :terminator)]
+        (async/<!! terminal-channel))
+      (info "Graphics thread has exited")
+
       ;; Then clean up
       ;; I'm getting here almost instantly. Meaning that front-end
       ;; apparently isn't getting set to anything that seems reasonable.

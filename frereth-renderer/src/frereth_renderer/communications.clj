@@ -25,7 +25,9 @@ TODO: formalize that using something like core.contract"
     ;; to actually implement the UI.
     (reset! dead-world {:context ctx
                         :socket socket
-                        :local-mq (async/chan)})))
+                        :local-mq (async/chan)
+                        ;; For notifying -main that the graphics loop is terminating
+                        :terminator (async/chan)})))
 
 (defn stop!
   [live-world]
@@ -34,6 +36,11 @@ TODO: formalize that using something like core.contract"
     (warn "No local async channel...what happened?"))
   (let [ctx (:context live-world)
         socket (:socket live-world)]
-    (mq/close socket)
-    (mq/terminate ctx))
+    ;; FIXME: Realistically, both these situations should throw an exception
+    (if socket
+      (mq/close! socket)
+      (error "Missing communications socket"))
+    (if ctx
+      (mq/terminate! ctx)
+      (error "Missing communications context")))
   live-world)

@@ -25,9 +25,9 @@
    ;; ...except for projects where they really and truly
    ;; make sense.
 
-   :front-end (atom nil)
+   ;;:front-end (atom nil)
    :visualizer (atom nil)
-   :graphics (graphics/init)})
+   :graphics (atom (graphics/init))})
 
 (defn start
   "Perform the side-effects to bring a dead system to life"
@@ -37,32 +37,33 @@
 
   (trace "START")
 
-  ;; FIXME: Graphics first.
-  ;; Besides. This doesn't really belong here.
-  (let [messaging (comm/start (:messaging universe))
-        visualization-channel (:local-mq messaging)
-
-        ;; TODO: Don't use magic numbers.
-        ;; TODO: Remember window positions from last run and reset them here.
-        ;; N.B.: That really means a custom classloader. Which must happen
-        ;; eventually anyway.
-        ;; Q: Why? On both counts?
-        ;; I just want to put it off as long as possible.
-        visual-details  {:width 1024
-                         :height 768
-                         :title "Frereth"
-                         :controller visualization-channel
-                         :fsm (:fsm universe)}
-        eye-candy (fn []
+  ;; Pulled the next block out of the let just below.
+  ;; Originally, I thought I wanted to call the graphics
+  ;; kick-off in its own thread. Now I'm fairly certain
+  ;; that I do not.
+  "        eye-candy (fn []
                     (graphics/begin visual-details))
         ;; TODO: Don't just use raw threads!
         ;; At the very least, use Java's built-in thread pool.
-        ui-thread (Thread. eye-candy)]
+        ui-thread (Thread. eye-candy)
+;; And then in the let body:
     (.start ui-thread)
-    ;; FIXME: This next name leaves a lot to be desired
-    ;;(reset! (:visualizer universe) visualization-channel)
-    (reset! (:front-end universe) ui-thread)
+"
+
+  (let [messaging (comm/start (:messaging universe))
+        ;;visualization-channel (:local-mq messaging)
+        ]
+
+    ;; I really want to kick off graphics immediately.
+    ;; Unfortunately for that plan, it needs access to
+    ;; messaging.
+    ;; Fortunately for my sorrow, that really doesn't
+    ;; add much time at all to the startup sequence.
     (reset! (:messaging universe) messaging)
+
+    (swap! (:graphics universe) (fn [renderer]
+                                  (graphics/start renderer
+                                                  (:messaging universe))))
 
     universe))
 
@@ -70,22 +71,6 @@
   "Perform the side-effects to sterilize a universe"
   [universe]
   (trace "Telling the visualizer to exit")
-  ;; I was originally getting a NPE here.
-  ;; It's gone away.
-  ;; Q: What's up with that?
-  ;; And, really, what was I thinking here?
-  (comment (async/>!! @(:visualizer universe) :exiting)
-           (trace "Closing the control channel"))
-  (comment (async/close! @(:control-channel universe)))
-  (comment
-    (trace "Closing the socket to the client")
-    (when-let [client-socket @(:client-socket universe)]
-      (mq/close client-socket))
-
-    ;; Realistically: want to take some time to allow that socket to wrap
-    ;; everything up.
-    (println "Terminating the messaging context")
-    (mq/terminate @(:messaging universe)))
   (comm/stop! (:messaging universe))
 
   (println "Killing the agents")

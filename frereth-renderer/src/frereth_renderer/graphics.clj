@@ -75,28 +75,115 @@ Baby steps."
              {:client-disconnect
               [nil :disconnected]}}))
 
-(defn init
-  "Set up the 'main' window.
-In the Stuart Sierra workflow-reloaded parlance, this is probably more of a start!"
+(defn configure-windowing
+  "Penumbra's (init)"
   ([]
      ;; Surely there are some default parameters that make sense.
      ;; They should really come from whatever's doing the init, though.
      ;; Or maybe it should be a mixture of both. Whatever. Worry about
      ;; it later.
-     (init {}))
+     (configure-windowing {}))
   ([params]
-      (let [renderer-state (init-window params)
-            system-state (init-fsm)]
-        {:renderer renderer-state
-         :fsm system-state})))
+     (app/vsync! true)
+     params))
 
-(defn start [universe]
-  (let [graphics (:graphics universe)
-        renderer-state (:renderer graphics)
-        windowing-state (init-gl renderer-state)
-        fsm (fsm/start (:fsm graphics) :disconnected)]
-    (into universe {:graphics {:renderer windowing-state
-                               :fsm fsm}})))
+(defn reshape
+  "Should get called every time the window changes size.
+For that matter, it should probably get called every time the window
+changes position. In practice, it almost never seems to get called."
+  [[x y w h] state]
+  ;; FIXME: This fixed camera isn't appropriate at all.
+  ;; It really needs to be set for whichever window is currently active.
+  ;; But it's a start.
+  ;; Besides...this is the vast majority of what init-gl was doing for starters.
+  (gl/frustum-view 60.0 (/ (double w) h) 1.0 100.0)
+  (gl/load-identity)
+  state)
+
+(declare display)
+(defn begin-eye-candy-thread
+  [visual-details]
+  "Graphics first and foremost: the user needs eye candy ASAP."
+  ;; Running this in a future seems more than a little problematic.
+  (comment (future))
+  (info "Kicking off penumbra window")
+  (app/start
+   ;; TODO: Need the other callbacks to let the client know what's going on
+   ;; (the Input side of the I/O)
+   {:init configure-windowing
+    :display display
+    :reshape reshape}
+   visual-details))
+
+(defn begin-communications
+  " Actually updating things isn't as interesting [at first] or [quite]
+as vital...but it's a very close second in both
+categories.
+OTOH, this really belongs elsewhere."
+  [state]
+  (let [control-channel (-> state :messaging :local-mq)
+        fsm-atom (:fsm state)]
+    (async/go
+     (loop [msg (async/<! control-channel)]
+       ;; FIXME: Need a "quit" message.
+       ;; This approach misses quite a few points, I think.
+       ;; This pieces of the FSM should be for very coarsely-
+       ;; grained transitions...
+       ;; then again, maybe my entire picture of the architecture
+       ;; is horribly flawed.
+       ;; TODO: Where's the actual communication happening?
+       ;; All I really care about right here, right now is
+       ;; establishing the heartbeat connection.
+       (let [next-state (fsm/transition! @fsm-atom msg true)]
+         ;; TODO: I don't think this is really even all that close
+         ;; to what I want.
+         (when-not (= next-state :__dead)
+           (recur (async/<! control-channel)))))
+
+     (info "Communications loop exiting")
+     ;; TODO: Kill the window!!
+     (let [terminal-channel (-> state :messaging deref :terminator)]
+       ;; Realistically, I want this to be synchronous.
+       ;; Can that happen inside a go block?
+       ;; Oh well. It shouldn't matter all that much.
+       (async/>! terminal-channel :game-over)))))
+
+(defn begin
+  "Kick off the threads where everything interesting happens."
+  [visual-details]
+
+  ;; TODO: Does this thread just go away when this goes out of scope?
+  (let [main-graphics-thread
+        (begin-eye-candy-thread visual-details)])
+  (trace "Graphics thread has begun")
+  (begin-communications visual-details)
+  (trace "Communications begun"))
+
+(defn init []
+  (let [system-state (init-fsm)]
+    {:renderer nil
+     :fsm system-state}))
+
+(defn start [graphics messaging]
+  (info "Starting graphics system")
+  (let [;; TODO: Don't use magic numbers.
+        ;; TODO: Remember window positions from last run and reset them here.
+        ;; N.B.: That really means a custom classloader. Which must happen
+        ;; eventually anyway.
+        ;; Q: Why? On both counts? (i.e. Why would I need a custom classloader
+        ;; for remembering last position, much less needing it eventually?)
+        ;; I just want to put it off as long as possible.
+        visual-details {:width 1024
+                        :height 768
+                        :title "Frereth"
+                        :messaging messaging
+                        :fsm (:fsm graphics)}]
+    (begin visual-details))
+  (let [renderer-state (:renderer graphics)
+        windowing-state (init-gl renderer-state)]
+    (fsm/start! (:fsm graphics) :disconnected)
+    (info "Storing graphics state")
+    (into graphics {:renderer windowing-state})))
 
 (defn stop [universe]
   ;; FIXME: Is there anything I can do here?
@@ -124,19 +211,6 @@ In the Stuart Sierra workflow-reloaded parlance, this is probably more of a star
 ;;; Drawing
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defn reshape
-  "Should get called every time the window changes size.
-For that matter, it should probably get called every time the window
-changes position. In practice, it almost never seems to get called."
-  [[x y w h] state]
-  ;; FIXME: This fixed camera isn't appropriate at all.
-  ;; It really needs to be set for whichever window is currently active.
-  ;; But it's a start.
-  ;; Besides...this is the vast majority of what init-gl was doing for starters.
-  (gl/frustum-view 60.0 (/ (double w) h) 1.0 100.0)
-  (gl/load-identity)
-  state)
 
 (defn draw-basic-triangles
   [{:keys [width height angle] :or {width 1 height 1 angle 0}}
@@ -180,7 +254,8 @@ changes position. In practice, it almost never seems to get called."
   [params]
   ;; FIXME: Fill the screen with whitespace, or something vaguely
   ;; interesting
-  (draw-splash-triangle params 0.25))
+  (comment (trace "Drawing dead"))
+  (draw-splash-triangle params 0.5))
 
 (defn draw-initial-splash
   "Rendering subsystem is up and ready to go. Waiting to hear from the client."
@@ -243,7 +318,7 @@ utility functions that handle this better."
            ;; This function shouldn't last long at all.
            (let [initial-time (System/currentTimeMillis)
                  frame-length  (fps->millis 60)
-                 controller (:controller params)]
+                 controller (-> params :messaging :local-mq)]
              (loop [params (into params {:update-function update-initial-splash
                                          :draw-function draw-initial-splash
                                          :last-time initial-time
@@ -299,6 +374,18 @@ utility functions that handle this better."
   ;; 3) When the client starts telling us what to draw, switch to that.
   ;; Q: What does that actually look like?
   ;; A: Well, pretty definitely not like this.
+
+  ;; I *am* getting here pretty frequently
+  (comment) (trace "display: " state)
+  ;; FIXME: Debugging only: check where FSM is hosed
+  (if-let [fsm-atom (:fsm state)]
+    (if-let [fsm @fsm-atom]
+      (if-let [actual-state (:state fsm)]
+        (trace "Have a state")
+        (error "Missing state!"))
+      (error "Missing FSM in the atom!"))
+    (error "Missing FSM atom??"))
+
   (let [state (:state @(:fsm state))
         drawer
         (condp = state
@@ -318,52 +405,3 @@ utility functions that handle this better."
     ;; That's an optimization for the future. For now, I need to get
     ;; something minimalist working.
     (app/repaint!)))
-
-(defn begin-eye-candy-thread
-  [visual-details]
-  "Graphics first and foremost: the user needs eye candy ASAP."
-  ;; Running this in a future seems more than a little problematic.
-  (future
-    (app/start
-     ;; TODO: Need the other callbacks to let the client know what's going on
-     ;; (the Input side of the I/O)
-     {:init init
-      :display display
-      :reshape reshape}
-     visual-details)))
-
-(defn begin-communications
-  " Actually updating things isn't as interesting [at first] or [quite]
-as vital...but it's a very close second in both
-categories.
-OTOH, this really belongs elsewhere."
-  [state]
-  (let [control-channel (:controller state)
-        fsm-atom (:fsm state)]
-    (async/go
-     (loop [msg (async/<! control-channel)]
-       ;; FIXME: Need a "quit" message.
-       ;; This approach misses quite a few points, I think.
-       ;; This pieces of the FSM should be for very coarsely-
-       ;; grained transitions...
-       ;; then again, maybe my entire picture of the architecture
-       ;; is horribly flawed.
-       ;; TODO: Where's the actual communication happening?
-       ;; All I really care about right here, right now is
-       ;; establishing the heartbeat connection.
-       (let [next-state (fsm/transition! @fsm-atom msg true)]
-         ;; TODO: I don't think this is really even all that close
-         ;; to what I want.
-         (when-not (= next-state :__dead)
-           (recur (async/<! control-channel))))))))
-
-(defn begin
-  "Kick off the threads where everything interesting happens."
-  [visual-details]
-
-  ;; TODO: Does this thread just go away when this goes out of scope?
-  (let [main-graphics-thread
-        (begin-eye-candy-thread visual-details)])
-  (trace "Graphics thread has begun")
-  (begin-communications visual-details)
-  (trace "Communications begun"))

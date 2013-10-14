@@ -1,7 +1,9 @@
 (ns frereth-renderer.fsm
   (:require [clojure.core.async :as async]
             [clojure.core.contracts :as contract]
-            [slingshot.slingshot :refer [throw+]])
+            [slingshot.slingshot :refer [throw+]]
+            [taoensso.timbre :as timbre
+             :refer [ trace debug info warn error fatal spy with-log-level]])
   (:gen-class))
 
 ;;; It's very tempting to turn this entire thing into a
@@ -68,11 +70,12 @@ OTOH...it can be extremely convenient"
                 ;; This is a fairly serious error under any circumstances.
                 (throw+ (into prev {:failure :missing :which :state}))))))
 
-(def start
+(def start!
   (contract/with-constraints
     (fn [fsm initial-state]
       ;; Special case. Can't actually use transition! because it doesn't
       ;; know how to bring a dead FSM to life.
+      (info "Starting FSM, state: " initial-state)
       (send fsm (fn [current]
                   (into current {:state initial-state}))))
 
