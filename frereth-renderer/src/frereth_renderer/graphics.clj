@@ -155,12 +155,19 @@ OTOH, this really belongs elsewhere."
   ;; TODO: Does this thread just go away when this goes out of scope?
   (let [main-graphics-thread
         (begin-eye-candy-thread visual-details)])
+  ;; That's capturing the thread. Not getting to the next line
+  ;; (much less returning) until the window closes.
+  ;; Oops.
+  (throw (RuntimeException. "Getting here"))
   (trace "Graphics thread has begun")
   (begin-communications visual-details)
   (trace "Communications begun"))
 
 (defn init []
   (let [system-state (init-fsm)]
+    ;; Do have an agent here.
+    (comment
+      (info "Initial FSM state: " system-state))
     {:renderer nil
      :fsm system-state}))
 
@@ -179,10 +186,15 @@ OTOH, this really belongs elsewhere."
                         :messaging messaging
                         :fsm (:fsm graphics)}]
     (begin visual-details))
+
+  (trace "Kicking off the fsm. Original agent:\n" (:fsm graphics)
+         "\nOriginal agent state:\n" @(:fsm graphics))
+
   (let [renderer-state (:renderer graphics)
         windowing-state (init-gl renderer-state)]
     (fsm/start! (:fsm graphics) :disconnected)
     (info "Storing graphics state")
+    (throw (RuntimeException. "Interrupt"))
     (into graphics {:renderer windowing-state})))
 
 (defn stop [universe]
@@ -376,15 +388,14 @@ utility functions that handle this better."
   ;; A: Well, pretty definitely not like this.
 
   ;; I *am* getting here pretty frequently
-  (comment) (trace "display: " state)
   ;; FIXME: Debugging only: check where FSM is hosed
-  (if-let [fsm-atom (:fsm state)]
-    (if-let [fsm @fsm-atom]
-      (if-let [actual-state (:state fsm)]
-        (trace "Have a state")
-        (error "Missing state!"))
-      (error "Missing FSM in the atom!"))
-    (error "Missing FSM atom??"))
+  (comment (if-let [fsm-atom (:fsm state)]
+             (if-let [fsm @fsm-atom]
+               (if-let [actual-state (:state fsm)]
+                 (trace "Have a state")
+                 (error "Missing state!"))
+               (error "Missing FSM in the atom!"))
+             (error "Missing FSM atom??")))
 
   (let [state (:state @(:fsm state))
         drawer
