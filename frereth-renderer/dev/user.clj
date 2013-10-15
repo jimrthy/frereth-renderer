@@ -7,6 +7,7 @@
             [clojure.tools.namespace.repl :refer (refresh refresh-all)]
             [frereth-renderer.graphics :as graphics]
             [frereth-renderer.system :as system])
+  ;; This doesn't seem to mesh well with penumbra.
   (:import [org.lwjgl.opengl.GL11]))
 
 (def system nil)

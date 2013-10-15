@@ -8,3 +8,7 @@ pom.xml.asc
 /.lein-*
 /.nrepl-port
 /native/*
+*.so
+*.dll
+*.jnilib
+*.dylib
