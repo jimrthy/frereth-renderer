@@ -84,7 +84,7 @@ OTOH...it can be extremely convenient"
               [fsm initial-state]
               [(= (:state @fsm) :__dead)
                =>
-               (= initial-state %)])))
+               #(= initial-state %)])))
 
 (defn current-state [fsm]
   ;; This seems more than a little silly.

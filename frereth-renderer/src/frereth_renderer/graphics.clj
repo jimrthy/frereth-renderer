@@ -51,6 +51,7 @@ specifying its own viewport. Most games will probably want multiple
 modes for a HUD.
 Baby steps."
   [{:keys [width height] :as state}]
+  (throw (RuntimeException. "Obsolete"))
   (gl/clear-color 0.5 0.0 0.5 0.0)
   
   state)
@@ -85,6 +86,7 @@ Baby steps."
      (configure-windowing {}))
   ([params]
      (app/vsync! true)
+     (gl/clear-color 0.5 0.0 0.5 0.0)
      params))
 
 (defn reshape
@@ -121,8 +123,12 @@ as vital...but it's a very close second in both
 categories.
 OTOH, this really belongs elsewhere."
   [state]
-  (let [control-channel (-> state :messaging :local-mq)
+  (let [control-channel (-> state :messaging deref :local-mq)
         fsm-atom (:fsm state)]
+    (trace "****************************************************
+State: " state "\nMessaging: " (:messaging state)
+           "\nControl Channel: " control-channel "\nFSM Atom: " fsm-atom
+           "\n****************************************************")
     (async/go
      (loop [msg (async/<! control-channel)]
        ;; FIXME: Need a "quit" message.
@@ -152,14 +158,8 @@ OTOH, this really belongs elsewhere."
   "Kick off the threads where everything interesting happens."
   [visual-details]
 
-  ;; TODO: Does this thread just go away when this goes out of scope?
-  (let [main-graphics-thread
-        (begin-eye-candy-thread visual-details)])
-  ;; That's capturing the thread. Not getting to the next line
-  ;; (much less returning) until the window closes.
-  ;; Oops.
-  (throw (RuntimeException. "Getting here"))
-  (trace "Graphics thread has begun")
+  (async/thread
+    (begin-eye-candy-thread visual-details))
   (begin-communications visual-details)
   (trace "Communications begun"))
 
@@ -187,15 +187,20 @@ OTOH, this really belongs elsewhere."
                         :fsm (:fsm graphics)}]
     (begin visual-details))
 
-  (trace "Kicking off the fsm. Original agent:\n" (:fsm graphics)
-         "\nOriginal agent state:\n" @(:fsm graphics))
+  (trace "**********************************************************
+Kicking off the fsm. Original agent:\n" (:fsm graphics)
+         "\nOriginal agent state:\n" @(:fsm graphics)
+         "\n***********************************************************")
 
   (let [renderer-state (:renderer graphics)
-        windowing-state (init-gl renderer-state)]
+        ;;windowing-state (init-gl renderer-state)
+        ]
     (fsm/start! (:fsm graphics) :disconnected)
-    (info "Storing graphics state")
-    (throw (RuntimeException. "Interrupt"))
-    (into graphics {:renderer windowing-state})))
+    (comment (info "Storing graphics state"))
+    ;;(throw (RuntimeException. "Interrupt"))
+    (comment (into graphics {:renderer windowing-state}))
+    (trace "Graphics Started")
+    graphics))
 
 (defn stop [universe]
   ;; FIXME: Is there anything I can do here?
