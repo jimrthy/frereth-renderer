@@ -59,6 +59,9 @@
     ;; messaging.
     ;; Fortunately for my sorrow, that really doesn't
     ;; add much time at all to the startup sequence.
+    ;; TODO: Split this up. I need an async channel to
+    ;; communicate with graphics. I can pass it the
+    ;; networking socket later.
     (reset! (:messaging universe) messaging)
 
     (swap! (:graphics universe) (fn [renderer]

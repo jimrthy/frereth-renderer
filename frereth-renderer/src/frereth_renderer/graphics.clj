@@ -187,14 +187,15 @@ State: " state "\nMessaging: " (:messaging state)
                         :fsm (:fsm graphics)}]
     (begin visual-details))
 
-  (trace "**********************************************************
+  (comment (trace "**********************************************************
 Kicking off the fsm. Original agent:\n" (:fsm graphics)
-         "\nOriginal agent state:\n" @(:fsm graphics)
-         "\n***********************************************************")
+"\nOriginal agent state:\n" @(:fsm graphics)
+"\n***********************************************************"))
 
   (let [renderer-state (:renderer graphics)
         ;;windowing-state (init-gl renderer-state)
         ]
+    (trace "Updating the FSM")
     (fsm/start! (:fsm graphics) :disconnected)
     (comment (info "Storing graphics state"))
     ;;(throw (RuntimeException. "Interrupt"))
@@ -397,12 +398,19 @@ utility functions that handle this better."
   (comment (if-let [fsm-atom (:fsm state)]
              (if-let [fsm @fsm-atom]
                (if-let [actual-state (:state fsm)]
-                 (trace "Have a state")
+                 (trace "Have a state: " actual-state)
                  (error "Missing state!"))
                (error "Missing FSM in the atom!"))
              (error "Missing FSM atom??")))
 
-  (let [state (:state @(:fsm state))
+  (let [state (fsm/current-state (:fsm state))
+        ;; FIXME: This is more than a little horrid.
+        ;; Q: How can I improve it? Esp. given the constraint that
+        ;; clojure multimethods dispatch slowly.
+        ;; Is this a situation where protocols might actually be
+        ;; appropriate?
+        ;; A: For now, that's premature optimization. Switching
+        ;; to a multimethod is probably an excellent idea, though.
         drawer
         (condp = state
           :__dead draw-dead
