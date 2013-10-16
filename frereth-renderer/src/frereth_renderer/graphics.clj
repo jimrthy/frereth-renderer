@@ -102,19 +102,73 @@ changes position. In practice, it almost never seems to get called."
   (gl/load-identity)
   state)
 
+(defn notify-input [state message]
+  (let [channel (-> state :messaging :local-mq)]
+    (async/go (async/>! message))))
+
+(defn notify-key-input [state key which]
+  (notify-input state {:what :key
+                       :which which}))
+
+(defn key-press [key state]
+  (notify-key-input state key :press))
+
+(defn key-release [key state]
+  (notify-key-input state key :release))
+
+(defn key-type [key state]
+  (notify-key-input state key :type))
+
+(defn notify-mouse-input [state which details]
+  (notify-input state {:what :mouse
+                       :which (into details which)}))
+
+(defn mouse-drag [[dx dy] [x y] button state]
+  (notify-mouse-input state :drag {:start [x y]
+                                   :delta [dx dy]
+                                   :button button}))
+
+(defn mouse-move [[dx dy] [x y] state]
+  (notify-mouse-input state :move {:start [x y]
+                                   :delta [dx dy]}))
+
+(defn mouse-button [state button location which]
+  (notify-mouse-input state which {:location location
+                                   :button button}))
+
+(defn mouse-click [location button state]
+  (mouse-button state button location :click))
+
+(defn mouse-down [location button state]
+  (mouse-button state button location :down))
+
+(defn mouse-up [location button state]
+  (mouse-button state button location :up))
+
+(defn close [state]
+  (throw (RuntimeException. "What does close message actually mean?")))
+
 (declare display)
+(declare update)
 (defn begin-eye-candy-thread
+  "Graphics first and foremost: the user needs eye candy ASAP.
+This makes that happen"
   [visual-details]
-  "Graphics first and foremost: the user needs eye candy ASAP."
-  ;; Running this in a future seems more than a little problematic.
-  (comment (future))
   (info "Kicking off penumbra window")
   (app/start
-   ;; TODO: Need the other callbacks to let the client know what's going on
-   ;; (the Input side of the I/O)
-   {:init configure-windowing
+   {:close close
     :display display
-    :reshape reshape}
+    :init configure-windowing
+    :key-press key-press
+    :key-release key-release
+    :key-type key-type
+    :mouse-click mouse-click
+    :mouse-down mouse-down
+    :mouse-drag mouse-drag
+    :mouse-move mouse-move
+    :mouse-up mouse-up
+    :reshape reshape
+    :update update}
    visual-details))
 
 (defn begin-communications
@@ -197,9 +251,6 @@ Kicking off the fsm. Original agent:\n" (:fsm graphics)
         ]
     (trace "Updating the FSM")
     (fsm/start! (:fsm graphics) :disconnected)
-    (comment (info "Storing graphics state"))
-    ;;(throw (RuntimeException. "Interrupt"))
-    (comment (into graphics {:renderer windowing-state}))
     (trace "Graphics Started")
     graphics))
 
@@ -307,8 +358,11 @@ finish so we can start drawing whatever the server wants."
                      next-angle)]
     (into params {:angle next-angle :last-time cur-time})))
 
+;; Obsolete
+;; FIXME: Is any of this worth trying to save?
 (defn update
-  [params]
+  "Called each frame, just before display. This lets me make things stateful."
+  [[delta time] params]
   (let [actual-update (:update-function params)
         updated (actual-update params)
         drawer (:draw-function params)]
