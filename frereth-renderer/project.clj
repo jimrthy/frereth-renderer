@@ -52,7 +52,8 @@ java.library.path and that's good enough."
                  ;; this *is* such an important part of frereth's core?
                  [simplecs "0.1.0"]
                  [slick-util "1.0.0"]
-                 [slingshot "0.10.3"]]
+                 [slingshot "0.10.3"]
+                 [spyscope "0.1.3"]]
   ;; Needed to get to lwjgl native libs...is this still true w/ penumbra?
   ;; Actually, since leiningen 2.1.0, probably not. This next entry seems
   ;; to be totally obsolete.

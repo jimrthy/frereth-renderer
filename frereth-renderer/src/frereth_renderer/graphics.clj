@@ -9,6 +9,9 @@
              :refer [ trace debug info warn error fatal spy with-log-level]])
   (:gen-class))
 
+;;;; FIXME: This namespace is getting too big. How much can I split out
+;;;; into smaller pieces?
+
 ;;; Information
 ;;; This probably doesn't actually belong here
 
@@ -102,6 +105,17 @@ changes position. In practice, it almost never seems to get called."
   (gl/load-identity)
   state)
 
+;;; Q: Do I really want to send this sort of low-level communication to
+;;; the renderer?
+;;; It makes some sort of sense, if that's where all the logic happens.
+;;; But, e.g. it seems like it shouldn't have any idea about the worldview matrix
+;;; to do translations from window coordinates into world coordinates for
+;;; determining a click location.
+;;; A: This really needs to be determined by the app in question. For some,
+;;; just sending the raw value in might make the most sense.
+;;; For others...let it pass in script to handle the logic here.
+;;; That implies a tighter architectual coupling than I like. How can I
+;;; avoid that?
 (defn notify-input [state message]
   (let [channel (-> state :messaging :local-mq)]
     (async/go (async/>! message))))
@@ -147,6 +161,9 @@ changes position. In practice, it almost never seems to get called."
 
 (defn close [state]
   (throw (RuntimeException. "What does close message actually mean?")))
+
+;;; FIXME: Initialization/destruction code seems to make more sense in
+;;; its own namespace.
 
 (declare display)
 (declare update)
@@ -281,6 +298,8 @@ Kicking off the fsm. Original agent:\n" (:fsm graphics)
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+
+;;; FIXME: The triangle pieces would make a lot of sense in their own namespace
 (defn draw-basic-triangles
   [{:keys [width height angle] :or {width 1 height 1 angle 0}}
    drawer]
@@ -358,7 +377,7 @@ finish so we can start drawing whatever the server wants."
                      next-angle)]
     (into params {:angle next-angle :last-time cur-time})))
 
-;; Obsolete
+;; Obsolete...except that it totally isn't.
 ;; FIXME: Is any of this worth trying to save?
 (defn update
   "Called each frame, just before display. This lets me make things stateful."
