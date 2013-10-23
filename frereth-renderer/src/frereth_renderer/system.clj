@@ -85,8 +85,9 @@
   ;; It isn't like it'll take long.
   ;; Then again: it'd be better to display any errors that happen there.
   (letfn [(verify-dead [key]
+            (timbre/trace "Verifying dead: " key)
             (assert (nil? @(key universe))))]
-    (doseq [k [:messaging :client-socket :control-channel]]
+    (doseq [k [:visualizer]]
       (verify-dead k)))
 
   (let [messaging (comm/start (:messaging universe))
@@ -98,6 +99,9 @@
     ;; messaging.
     ;; Fortunately for my sorrow, that really doesn't
     ;; add much time at all to the startup sequence.
+    ;; TODO: Split this up. I need an async channel to
+    ;; communicate with graphics. I can pass it the
+    ;; networking socket later.
     (reset! (:messaging universe) messaging)
 
     (swap! (:graphics universe) (fn [renderer]

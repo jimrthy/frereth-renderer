@@ -33,6 +33,7 @@ java.library.path and that's good enough."
   ;; Big swaths of these are only needed because I haven't found the time
   ;; to properly configure my local maven repo.
   :dependencies [[byte-transforms "0.1.0"]
+                 [com.taoensso/timbre "2.6.2"]
                  [jimrthy/cljeromq "0.1.0-SNAPSHOT"]
                  [jimrthy/penumbra "0.6.6-SNAPSHOT"]
                  [kephale/cantor "0.4.1"] ; Deprecated math optimization library
@@ -53,7 +54,7 @@ java.library.path and that's good enough."
                  [simplecs "0.1.0"]
                  [slick-util "1.0.0"]
                  [slingshot "0.10.3"]
-                 [com.taoensso/timbre "2.6.2"]]
+                 [spyscope "0.1.3"]]
   ;; Needed to get to lwjgl native libs...is this still true w/ penumbra?
   ;; Actually, since leiningen 2.1.0, probably not. This next entry seems
   ;; to be totally obsolete.

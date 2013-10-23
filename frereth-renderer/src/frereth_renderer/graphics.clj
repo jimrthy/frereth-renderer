@@ -9,6 +9,9 @@
              :refer [ trace debug info warn error fatal spy with-log-level]])
   (:gen-class))
 
+;;;; FIXME: This namespace is getting too big. How much can I split out
+;;;; into smaller pieces?
+
 ;;; Information
 ;;; This probably doesn't actually belong here
 
@@ -51,6 +54,7 @@ specifying its own viewport. Most games will probably want multiple
 modes for a HUD.
 Baby steps."
   [{:keys [width height] :as state}]
+  (throw (RuntimeException. "Obsolete"))
   (gl/clear-color 0.5 0.0 0.5 0.0)
   
   state)
@@ -85,6 +89,7 @@ Baby steps."
      (configure-windowing {}))
   ([params]
      (app/vsync! true)
+     (gl/clear-color 0.5 0.0 0.5 0.0)
      params))
 
 (defn reshape
@@ -100,19 +105,87 @@ changes position. In practice, it almost never seems to get called."
   (gl/load-identity)
   state)
 
+;;; Q: Do I really want to send this sort of low-level communication to
+;;; the renderer?
+;;; It makes some sort of sense, if that's where all the logic happens.
+;;; But, e.g. it seems like it shouldn't have any idea about the worldview matrix
+;;; to do translations from window coordinates into world coordinates for
+;;; determining a click location.
+;;; A: This really needs to be determined by the app in question. For some,
+;;; just sending the raw value in might make the most sense.
+;;; For others...let it pass in script to handle the logic here.
+;;; That implies a tighter architectual coupling than I like. How can I
+;;; avoid that?
+(defn notify-input [state message]
+  (let [channel (-> state :messaging :local-mq)]
+    (async/go (async/>! message))))
+
+(defn notify-key-input [state key which]
+  (notify-input state {:what :key
+                       :which which}))
+
+(defn key-press [key state]
+  (notify-key-input state key :press))
+
+(defn key-release [key state]
+  (notify-key-input state key :release))
+
+(defn key-type [key state]
+  (notify-key-input state key :type))
+
+(defn notify-mouse-input [state which details]
+  (notify-input state {:what :mouse
+                       :which (into details which)}))
+
+(defn mouse-drag [[dx dy] [x y] button state]
+  (notify-mouse-input state :drag {:start [x y]
+                                   :delta [dx dy]
+                                   :button button}))
+
+(defn mouse-move [[dx dy] [x y] state]
+  (notify-mouse-input state :move {:start [x y]
+                                   :delta [dx dy]}))
+
+(defn mouse-button [state button location which]
+  (notify-mouse-input state which {:location location
+                                   :button button}))
+
+(defn mouse-click [location button state]
+  (mouse-button state button location :click))
+
+(defn mouse-down [location button state]
+  (mouse-button state button location :down))
+
+(defn mouse-up [location button state]
+  (mouse-button state button location :up))
+
+(defn close [state]
+  (throw (RuntimeException. "What does close message actually mean?")))
+
+;;; FIXME: Initialization/destruction code seems to make more sense in
+;;; its own namespace.
+
 (declare display)
+(declare update)
 (defn begin-eye-candy-thread
+  "Graphics first and foremost: the user needs eye candy ASAP.
+This makes that happen"
   [visual-details]
-  "Graphics first and foremost: the user needs eye candy ASAP."
-  ;; Running this in a future seems more than a little problematic.
-  (comment (future))
   (info "Kicking off penumbra window")
   (app/start
-   ;; TODO: Need the other callbacks to let the client know what's going on
-   ;; (the Input side of the I/O)
-   {:init configure-windowing
+   {:close close
     :display display
-    :reshape reshape}
+    :init configure-windowing
+    :key-press key-press
+    :key-release key-release
+    :key-type key-type
+    :mouse-click mouse-click
+    :mouse-down mouse-down
+    :mouse-drag mouse-drag
+    :mouse-move mouse-move
+    :mouse-up mouse-up
+    :reshape reshape
+    :update update}
    visual-details))
 
 (defn begin-communications
@@ -121,8 +194,12 @@ as vital...but it's a very close second in both
 categories.
 OTOH, this really belongs elsewhere."
   [state]
-  (let [control-channel (-> state :messaging :local-mq)
+  (let [control-channel (-> state :messaging deref :local-mq)
         fsm-atom (:fsm state)]
+    (trace "****************************************************
+State: " state "\nMessaging: " (:messaging state)
+           "\nControl Channel: " control-channel "\nFSM Atom: " fsm-atom
+           "\n****************************************************")
     (async/go
      (loop [msg (async/<! control-channel)]
        ;; FIXME: Need a "quit" message.
@@ -152,15 +229,16 @@ OTOH, this really belongs elsewhere."
   "Kick off the threads where everything interesting happens."
   [visual-details]
 
-  ;; TODO: Does this thread just go away when this goes out of scope?
-  (let [main-graphics-thread
-        (begin-eye-candy-thread visual-details)])
-  (trace "Graphics thread has begun")
+  (async/thread
+    (begin-eye-candy-thread visual-details))
   (begin-communications visual-details)
   (trace "Communications begun"))
 
 (defn init []
   (let [system-state (init-fsm)]
+    ;; Do have an agent here.
+    (comment
+      (info "Initial FSM state: " system-state))
     {:renderer nil
      :fsm system-state}))
 
@@ -179,11 +257,19 @@ OTOH, this really belongs elsewhere."
                         :messaging messaging
                         :fsm (:fsm graphics)}]
     (begin visual-details))
+
+  (comment (trace "**********************************************************
+Kicking off the fsm. Original agent:\n" (:fsm graphics)
+"\nOriginal agent state:\n" @(:fsm graphics)
+"\n***********************************************************"))
+
   (let [renderer-state (:renderer graphics)
-        windowing-state (init-gl renderer-state)]
+        ;;windowing-state (init-gl renderer-state)
+        ]
+    (trace "Updating the FSM")
     (fsm/start! (:fsm graphics) :disconnected)
-    (info "Storing graphics state")
-    (into graphics {:renderer windowing-state})))
+    (trace "Graphics Started")
+    graphics))
 
 (defn stop [universe]
   ;; FIXME: Is there anything I can do here?
@@ -212,6 +298,8 @@ OTOH, this really belongs elsewhere."
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+
+;;; FIXME: The triangle pieces would make a lot of sense in their own namespace
 (defn draw-basic-triangles
   [{:keys [width height angle] :or {width 1 height 1 angle 0}}
    drawer]
@@ -289,8 +377,11 @@ finish so we can start drawing whatever the server wants."
                      next-angle)]
     (into params {:angle next-angle :last-time cur-time})))
 
+;; Obsolete...except that it totally isn't.
+;; FIXME: Is any of this worth trying to save?
 (defn update
-  [params]
+  "Called each frame, just before display. This lets me make things stateful."
+  [[delta time] params]
   (let [actual-update (:update-function params)
         updated (actual-update params)
         drawer (:draw-function params)]
@@ -376,17 +467,23 @@ utility functions that handle this better."
   ;; A: Well, pretty definitely not like this.
 
   ;; I *am* getting here pretty frequently
-  (comment) (trace "display: " state)
   ;; FIXME: Debugging only: check where FSM is hosed
-  (if-let [fsm-atom (:fsm state)]
-    (if-let [fsm @fsm-atom]
-      (if-let [actual-state (:state fsm)]
-        (trace "Have a state")
-        (error "Missing state!"))
-      (error "Missing FSM in the atom!"))
-    (error "Missing FSM atom??"))
+  (comment (if-let [fsm-atom (:fsm state)]
+             (if-let [fsm @fsm-atom]
+               (if-let [actual-state (:state fsm)]
+                 (trace "Have a state: " actual-state)
+                 (error "Missing state!"))
+               (error "Missing FSM in the atom!"))
+             (error "Missing FSM atom??")))
 
-  (let [state (:state @(:fsm state))
+  (let [state (fsm/current-state (:fsm state))
+        ;; FIXME: This is more than a little horrid.
+        ;; Q: How can I improve it? Esp. given the constraint that
+        ;; clojure multimethods dispatch slowly.
+        ;; Is this a situation where protocols might actually be
+        ;; appropriate?
+        ;; A: For now, that's premature optimization. Switching
+        ;; to a multimethod is probably an excellent idea, though.
         drawer
         (condp = state
           :__dead draw-dead
