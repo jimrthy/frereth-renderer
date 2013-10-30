@@ -53,8 +53,7 @@ java.library.path and that's good enough."
                  ;; this *is* such an important part of frereth's core?
                  [simplecs "0.1.0"]
                  [slick-util "1.0.0"]
-                 [slingshot "0.10.3"]
-                 [spyscope "0.1.3"]]
+                 [slingshot "0.10.3"]]
   ;; Needed to get to lwjgl native libs...is this still true w/ penumbra?
   ;; Actually, since leiningen 2.1.0, probably not. This next entry seems
   ;; to be totally obsolete.
@@ -65,13 +64,15 @@ java.library.path and that's good enough."
   ;;:plugins [[lein-git-deps "0.0.1-SNAPSHOT"]]
   :profiles {:uberjar {:aot :all}
              :dev {:source-paths ["dev"]
-                   :dependencies  [[midje "1.5.1"]
+                   :dependencies  [[clj-ns-browser "1.3.1"]
+                                   [midje "1.5.1"]
                                    [night-vision "0.1.0-SNAPSHOT"]
                                    [org.clojure/tools.namespace "0.2.3"]
                                    [org.clojure/java.classpath "0.2.0"]
                                    ;; Umm...do I really not want this for
                                    ;; real??
-                                   [org.clojure/tools.logging "0.2.6"]]
+                                   [org.clojure/tools.logging "0.2.6"]
+                                   [ritz/ritz-debugger "0.7.0"]]
                    ;; c.f. https://gist.github.com/MichaelDrogalis/6638777
                    :injections [(require 'night-vision.goggles)
                                 (require 'clojure.pprint)]}}

@@ -5,6 +5,7 @@
             [penumbra.app :as app]
             [penumbra.app.core :as core]
             [penumbra.opengl :as gl]
+            ;;[snapshot.core]
             [taoensso.timbre :as timbre
              :refer [ trace debug info warn error fatal spy with-log-level]])
   (:gen-class))
@@ -29,14 +30,18 @@ This approach is more than a little dumb...should really be able to create full-
 windows that fill multiple monitors.
 Baby steps. I'm just trying to get that rope thrown across the gorge."
   [{:keys [width height title] :as state}]
+  ;; There's absolutely nothing happening in here now.
+  (throw (RuntimeException. "Obsolete"))
+
   (trace "Initializing window")
-  (pprint state)
+  (spy state)
   ;; Have to pass in the window in question.
   ;; As annoying as it is, that's the way Protocols work.
   ;; Changing something that basic in Penumbra means very
   ;; breaking API changes. Probably doesn't matter, since I
   ;; seriously doubt anyone else is using this. But not
   ;; something that I have time for just now.
+  ;; FIXME: Do I seriously not have a window to hand to this?
   (comment (app/vsync! nil true))
 
   ;; These don't seem to have penumbra equivalents (though that's probably just
@@ -47,37 +52,22 @@ Baby steps. I'm just trying to get that rope thrown across the gorge."
            (Display/create))
   state)
 
-(defn init-gl
-  "Set up the basic framework for rendering.
-This is *definitely* not a long-term thing. Each world should be
-specifying its own viewport. Most games will probably want multiple
-modes for a HUD.
-Baby steps."
-  [{:keys [width height] :as state}]
-  (throw (RuntimeException. "Obsolete"))
-  (gl/clear-color 0.5 0.0 0.5 0.0)
-  
-  state)
-
-(defn init-fsm []
+(defn init-fsm
+  "This doesn't particularly belong here. Except that the two seem
+strongly coupled inherently. Probably a symptom of the bigger problem
+that there's just too much going on in here."
+  []
   (fsm/init {:disconnected
-             {:client-connect-without-server
-              [nil :waiting-for-server]
-              :client-connect-with-server
-              [nil :waiting-for-home-page]
-              :client-connect-with-home-page
-              [nil :main-life]}
+             {:client-connect-without-server [nil :waiting-for-server]
+              :client-connect-with-server    [nil :waiting-for-home-page]
+              :client-connect-with-home-page [nil :main-life]}
              :waiting-for-server
-             {:client-disconnect
-              [nil :disconnected]}
+             {:client-disconnect             [nil :disconnected]}
              :server-connected
-             {:waiting-for-home-page
-              [nil :main-life]
-              :client-disconnect
-              [nil :disconnected]}
+             {:waiting-for-home-page         [nil :main-life]
+              :client-disconnect             [nil :disconnected]}
              :main-life
-             {:client-disconnect
-              [nil :disconnected]}}))
+             {:client-disconnect             [nil :disconnected]}}))
 
 (defn configure-windowing
   "Penumbra's (init)"
@@ -88,6 +78,7 @@ Baby steps."
      ;; it later.
      (configure-windowing {}))
   ([params]
+     (trace "Configuring the Window. Params:\n" params)
      (app/vsync! true)
      (gl/clear-color 0.5 0.0 0.5 0.0)
      params))
@@ -95,8 +86,13 @@ Baby steps."
 (defn reshape
   "Should get called every time the window changes size.
 For that matter, it should probably get called every time the window
-changes position. In practice, it almost never seems to get called."
+changes position. In practice, it almost never seems to get called.
+Actually, if my experiments with pen-sample are any indication, this
+never gets called."
   [[x y w h] state]
+  ;; I wonder whether this has something to do with LWJGL changes
+  (throw (RuntimeException. "Oops, I was wrong"))
+
   ;; FIXME: This fixed camera isn't appropriate at all.
   ;; It really needs to be set for whichever window is currently active.
   ;; But it's a start.
@@ -197,11 +193,14 @@ OTOH, this really belongs elsewhere."
   (let [control-channel (-> state :messaging deref :local-mq)
         fsm-atom (:fsm state)]
     (trace "****************************************************
-State: " state "\nMessaging: " (:messaging state)
-           "\nControl Channel: " control-channel "\nFSM Atom: " fsm-atom
+Beginning Communications
+State: " state "\n\nMessaging: " (:messaging state)
+           "\n\nControl Channel: " control-channel "\n\nFSM Atom: " fsm-atom
            "\n****************************************************")
     (async/go
      (loop [msg (async/<! control-channel)]
+       (trace "Control Message:\n" msg)
+
        ;; FIXME: Need a "quit" message.
        ;; This approach misses quite a few points, I think.
        ;; This pieces of the FSM should be for very coarsely-
@@ -223,22 +222,29 @@ State: " state "\nMessaging: " (:messaging state)
        ;; Realistically, I want this to be synchronous.
        ;; Can that happen inside a go block?
        ;; Oh well. It shouldn't matter all that much.
-       (async/>! terminal-channel :game-over)))))
+       (async/>! terminal-channel :game-over)))
+    (trace "Communications Thread set up")))
 
 (defn begin
   "Kick off the threads where everything interesting happens."
   [visual-details]
 
+  ;; Note that this probably won't work on Mac. Or maybe it will...it'll
+  ;; be interesting to see. (I've seen lots of posts complaining about trying to
+  ;; get Cocoa apps doing anything when the graphics try to happen on anything
+  ;; except the main thread)
+  (trace "Starting graphics thread")
   (async/thread
     (begin-eye-candy-thread visual-details))
+  (trace "Starting communications thread")
   (begin-communications visual-details)
   (trace "Communications begun"))
 
 (defn init []
   (let [system-state (init-fsm)]
     ;; Do have an agent here.
-    (comment
-      (info "Initial FSM state: " system-state))
+    (comment)
+    (info "Initial FSM state: " system-state)
     {:renderer nil
      :fsm system-state}))
 

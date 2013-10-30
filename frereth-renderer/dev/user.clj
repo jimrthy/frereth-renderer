@@ -1,14 +1,13 @@
 (ns user
   (:require [clojure.java.io :as io]
+            [clojure.inspector :as i]
             [clojure.string :as str]
             [clojure.pprint :refer (pprint)]
             [clojure.repl :refer :all]
             [clojure.test :as test]
             [clojure.tools.namespace.repl :refer (refresh refresh-all)]
             [frereth-renderer.graphics :as graphics]
-            [frereth-renderer.system :as system])
-  ;; This doesn't seem to mesh well with penumbra.
-  (:import [org.lwjgl.opengl.GL11]))
+            [frereth-renderer.system :as system]))
 
 (def system nil)
 
