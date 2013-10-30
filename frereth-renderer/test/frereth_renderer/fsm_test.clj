@@ -40,7 +40,7 @@
                              {:log-out [nil :initialized]
                               :cancel [nil :ready-to-play]
                               :complete [nil :ready-to-play]}})
-             m (fsm/start dead :initialized)]
+             m (fsm/start! dead :initialized)]
          (fact "initialized"
                (Thread/sleep 100)
                (fsm/current-state m) => :initialized)
