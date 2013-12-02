@@ -1,7 +1,7 @@
 (ns frereth-renderer.fsm
   (:require [clojure.core.async :as async]
             [clojure.core.contracts :as contract]
-            [slingshot.slingshot :refer [throw+]]
+            [slingshot.slingshot :refer [throw+ try+]]
             [taoensso.timbre :as timbre
              :refer [ trace debug info warn error fatal spy with-log-level]])
   (:gen-class))
@@ -46,29 +46,37 @@ That part is extremely easy to abuse and should almost definitely
 go away.
 OTOH...it can be extremely convenient"
   [fsm transition-key & error-if-unknown]
-  (send fsm (fn [prev]
-              ;; Wow. This just seems incredibly ugly.
-              (if-let [{:keys [state] :as machine} prev]
-                (if-let [transitions (state prev)]
-                  (if-let [[side-effect updated] (transitions transition-key)]
-                    (do
-                      (when side-effect
-                        (side-effect))
-                      ;; Success!
-                      (comment (println "Switching from " (:state prev) " to " updated))
-                      (into prev {:state updated}))
-                    (if error-if-unknown
+  (trace "FSM Transition!\nSending " transition-key " to " fsm)
+  (try+
+    (send fsm (fn [prev]
+                ;; Wow. This just seems incredibly ugly.
+                ;; Aside from not actually working.
+                (if-let [{:keys [state] :as machine} prev]
+                  (if-let [transitions (state prev)]
+                    (if-let [[side-effect updated] (transitions transition-key)]
                       (do
-                        (comment (println "Set to error out on illegal transition"))
-                        ;; Note that this should put the agent into an error state.
-                        (throw+ (into prev {:failure :transition :which transition-key})))
-                      (comment (println "Ignoring illegal transition"))))
-                  ;; FSM doesn't know anything about its current state.
-                  ;; Not really any way around this either
-                  (throw+ (into prev {:failure :state :which state})))
-                ;; FSM is totally missing its current state.
-                ;; This is a fairly serious error under any circumstances.
-                (throw+ (into prev {:failure :missing :which :state}))))))
+                        (when side-effect
+                          (side-effect))
+                        ;; Success!
+                        (comment (println "Switching from " (:state prev) " to " updated))
+                        (into prev {:state updated}))
+                      (if error-if-unknown
+                        (do
+                          (comment (println "Set to error out on illegal transition"))
+                          ;; Note that this should put the agent into an error state.
+                          (throw+ (into prev {:failure :transition :which transition-key})))
+                        (comment (println "Ignoring illegal transition"))))
+                    ;; FSM doesn't know anything about its current state.
+                    ;; Not really any way around this either
+                    (throw+ (into prev {:failure :state :which state})))
+                  ;; FSM is totally missing its current state.
+                  ;; This is a fairly serious error under any circumstances.
+                  (throw+ (into prev {:failure :missing :which :state})))))
+    (catch ClassCastException ex
+      (error "Broken FSM transition: trying to send '"
+             (str transition-key) "' to\n'" (str fsm) "'")
+      ;; This definitely falls in the category of "fail early"
+      (throw+))))
 
 (def start!
   (contract/with-constraints

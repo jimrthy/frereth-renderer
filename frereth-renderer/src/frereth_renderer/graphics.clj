@@ -5,6 +5,7 @@
             [penumbra.app :as app]
             [penumbra.app.core :as core]
             [penumbra.opengl :as gl]
+            [slingshot.slingshot :refer (throw+)]
             [taoensso.timbre :as timbre
              :refer [ trace debug info warn error fatal spy with-log-level]])
   (:gen-class))
@@ -39,6 +40,7 @@ Baby steps. I'm just trying to get that rope thrown across the gorge."
   ;; something that I have time for just now.
   (comment (app/vsync! nil true))
 
+  ;; These are left-overs from my initial stab at using raw JOGL.
   ;; These don't seem to have penumbra equivalents (though that's probably just
   ;; because I haven't dug deep enough yet).
   ;; Whatever. I desperately need to do something along these lines.
@@ -55,8 +57,7 @@ modes for a HUD.
 Baby steps."
   [{:keys [width height] :as state}]
   (throw (RuntimeException. "Obsolete"))
-  (gl/clear-color 0.5 0.0 0.5 0.0)
-  
+  (gl/clear-color 0.5 0.0 0.5 0.0)  
   state)
 
 (defn init-fsm []
@@ -97,6 +98,7 @@ Baby steps."
 For that matter, it should probably get called every time the window
 changes position. In practice, it almost never seems to get called."
   [[x y w h] state]
+  (println "Reshape")
   ;; FIXME: This fixed camera isn't appropriate at all.
   ;; It really needs to be set for whichever window is currently active.
   ;; But it's a start.
@@ -117,8 +119,14 @@ changes position. In practice, it almost never seems to get called."
 ;;; That implies a tighter architectual coupling than I like. How can I
 ;;; avoid that?
 (defn notify-input [state message]
-  (let [channel (-> state :messaging :local-mq)]
-    (async/go (async/>! message))))
+  (trace "Input notification:\n" message)
+  (if-let [msg (:messaging state)]
+    (if-let [channel (:local-mq @msg)]
+      (async/go (async/>! channel message))
+      (error "Missing Message Queue channel for input notification\n("
+             msg ")"))
+    (error "State has no messaging member to submit input notification\n("
+           state ")")))
 
 (defn notify-key-input [state key which]
   (notify-input state {:what :key
@@ -134,30 +142,34 @@ changes position. In practice, it almost never seems to get called."
   (notify-key-input state key :type))
 
 (defn notify-mouse-input [state which details]
+  (let [msg (str "Mouse Input\nWhich: " which "\nDetails:\n" details)]
+    (trace msg))
   (notify-input state {:what :mouse
                        :which (into details which)}))
 
 (defn mouse-drag [[dx dy] [x y] button state]
-  (notify-mouse-input state :drag {:start [x y]
-                                   :delta [dx dy]
-                                   :button button}))
+  (notify-mouse-input state {:message :drag}
+                      {:start [x y]
+                       :delta [dx dy]
+                       :button button}))
 
 (defn mouse-move [[dx dy] [x y] state]
-  (notify-mouse-input state :move {:start [x y]
-                                   :delta [dx dy]}))
+  (notify-mouse-input state {:message :move}
+                      {:start [x y]
+                       :delta [dx dy]}))
 
 (defn mouse-button [state button location which]
   (notify-mouse-input state which {:location location
                                    :button button}))
 
 (defn mouse-click [location button state]
-  (mouse-button state button location :click))
+  (mouse-button state button location {:message :click}))
 
 (defn mouse-down [location button state]
-  (mouse-button state button location :down))
+  (mouse-button state button location {:message :down}))
 
 (defn mouse-up [location button state]
-  (mouse-button state button location :up))
+  (mouse-button state button location {:message :up}))
 
 (defn close [state]
   (throw (RuntimeException. "What does close message actually mean?")))
@@ -196,7 +208,8 @@ OTOH, this really belongs elsewhere."
   [state]
   (let [control-channel (-> state :messaging deref :local-mq)
         fsm-atom (:fsm state)]
-    (trace "****************************************************
+    (trace "\n****************************************************
+Initializing Communications
 State: " state "\nMessaging: " (:messaging state)
            "\nControl Channel: " control-channel "\nFSM Atom: " fsm-atom
            "\n****************************************************")
@@ -211,6 +224,16 @@ State: " state "\nMessaging: " (:messaging state)
        ;; TODO: Where's the actual communication happening?
        ;; All I really care about right here, right now is
        ;; establishing the heartbeat connection.
+
+       ;; TODO:
+       ;; I've screwed up the data flow. I'm piping a mouse
+       ;; message into the control channel. It really should be
+       ;; transmitted to the Client.
+       (trace (RuntimeException. "Start here"))
+       ;; Instead, it's winding up back here, and getting treated
+       ;; as an FSM. This is a Bad Thing(TM)!
+       (trace "Communications Loop Received\n" 
+              msg "\nfrom control channel")
        (let [next-state (fsm/transition! @fsm-atom msg true)]
          ;; TODO: I don't think this is really even all that close
          ;; to what I want.
@@ -382,11 +405,21 @@ finish so we can start drawing whatever the server wants."
 (defn update
   "Called each frame, just before display. This lets me make things stateful."
   [[delta time] params]
-  (let [actual-update (:update-function params)
-        updated (actual-update params)
-        drawer (:draw-function params)]
-    (drawer updated)
-    updated))
+  (if-let [actual-update (:update-function params)]
+    (if-let [updated (actual-update params)]
+      (if-let [drawer (:draw-function params)]
+        (do
+          (drawer updated)
+          updated)
+        (do
+          (throw+ {:error (str 
+                           "Update: No draw-function associated with\n" 
+                           params)})))
+      (throw+ {:error (str
+                       "Update: nothing updated in\n" params)}))
+    (throw+ {:error (str
+                     "Missing update function in\n"
+                     params)})))
 
 (defn fps->millis
   "Silly utilitiy function. At x frames per second, each individual
@@ -468,13 +501,13 @@ utility functions that handle this better."
 
   ;; I *am* getting here pretty frequently
   ;; FIXME: Debugging only: check where FSM is hosed
-  (comment (if-let [fsm-atom (:fsm state)]
-             (if-let [fsm @fsm-atom]
-               (if-let [actual-state (:state fsm)]
-                 (trace "Have a state: " actual-state)
-                 (error "Missing state!"))
-               (error "Missing FSM in the atom!"))
-             (error "Missing FSM atom??")))
+  (comment) (if-let [fsm-atom (:fsm state)]
+              (if-let [fsm @fsm-atom]
+                (if-let [actual-state (:state fsm)]
+                  (trace "Have a state: " actual-state)
+                  (error "Missing state!"))
+                (error "Missing FSM in the atom!"))
+              (error "Missing FSM atom??"))
 
   (let [state (fsm/current-state (:fsm state))
         ;; FIXME: This is more than a little horrid.
