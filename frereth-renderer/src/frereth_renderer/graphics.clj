@@ -5,7 +5,7 @@
             [penumbra.app :as app]
             [penumbra.app.core :as core]
             [penumbra.opengl :as gl]
-            ;;[snapshot.core]
+            [slingshot.slingshot :refer (throw+)]
             [taoensso.timbre :as timbre
              :refer [ trace debug info warn error fatal spy with-log-level]])
   (:gen-class))
@@ -44,6 +44,7 @@ Baby steps. I'm just trying to get that rope thrown across the gorge."
   ;; FIXME: Do I seriously not have a window to hand to this?
   (comment (app/vsync! nil true))
 
+  ;; These are left-overs from my initial stab at using raw JOGL.
   ;; These don't seem to have penumbra equivalents (though that's probably just
   ;; because I haven't dug deep enough yet).
   ;; Whatever. I desperately need to do something along these lines.
@@ -90,9 +91,7 @@ changes position. In practice, it almost never seems to get called.
 Actually, if my experiments with pen-sample are any indication, this
 never gets called."
   [[x y w h] state]
-  ;; I wonder whether this has something to do with LWJGL changes
-  (throw (RuntimeException. "Oops, I was wrong"))
-
+  (comment(println "Reshape"))
   ;; FIXME: This fixed camera isn't appropriate at all.
   ;; It really needs to be set for whichever window is currently active.
   ;; But it's a start.
@@ -113,8 +112,14 @@ never gets called."
 ;;; That implies a tighter architectual coupling than I like. How can I
 ;;; avoid that?
 (defn notify-input [state message]
-  (let [channel (-> state :messaging :local-mq)]
-    (async/go (async/>! message))))
+  (trace "Input notification:\n" message)
+  (if-let [msg (:messaging state)]
+    (if-let [channel (:local-mq @msg)]
+      (async/go (async/>! channel message))
+      (error "Missing Message Queue channel for input notification\n("
+             msg ")"))
+    (error "State has no messaging member to submit input notification\n("
+           state ")")))
 
 (defn notify-key-input [state key which]
   (notify-input state {:what :key
@@ -130,30 +135,34 @@ never gets called."
   (notify-key-input state key :type))
 
 (defn notify-mouse-input [state which details]
+  (let [msg (str "Mouse Input\nWhich: " which "\nDetails:\n" details)]
+    (trace msg))
   (notify-input state {:what :mouse
                        :which (into details which)}))
 
 (defn mouse-drag [[dx dy] [x y] button state]
-  (notify-mouse-input state :drag {:start [x y]
-                                   :delta [dx dy]
-                                   :button button}))
+  (notify-mouse-input state {:message :drag}
+                      {:start [x y]
+                       :delta [dx dy]
+                       :button button}))
 
 (defn mouse-move [[dx dy] [x y] state]
-  (notify-mouse-input state :move {:start [x y]
-                                   :delta [dx dy]}))
+  (notify-mouse-input state {:message :move}
+                      {:start [x y]
+                       :delta [dx dy]}))
 
 (defn mouse-button [state button location which]
   (notify-mouse-input state which {:location location
                                    :button button}))
 
 (defn mouse-click [location button state]
-  (mouse-button state button location :click))
+  (mouse-button state button location {:message :click}))
 
 (defn mouse-down [location button state]
-  (mouse-button state button location :down))
+  (mouse-button state button location {:message :down}))
 
 (defn mouse-up [location button state]
-  (mouse-button state button location :up))
+  (mouse-button state button location {:message :up}))
 
 (defn close [state]
   (throw (RuntimeException. "What does close message actually mean?")))
@@ -192,10 +201,10 @@ OTOH, this really belongs elsewhere."
   [state]
   (let [control-channel (-> state :messaging deref :local-mq)
         fsm-atom (:fsm state)]
-    (trace "****************************************************
-Beginning Communications
-State: " state "\n\nMessaging: " (:messaging state)
-           "\n\nControl Channel: " control-channel "\n\nFSM Atom: " fsm-atom
+    (trace "\n****************************************************
+Initializing Communications
+State: " state "\nMessaging: " (:messaging state)
+           "\nControl Channel: " control-channel "\nFSM Atom: " fsm-atom
            "\n****************************************************")
     (async/go
      (loop [msg (async/<! control-channel)]
@@ -210,6 +219,16 @@ State: " state "\n\nMessaging: " (:messaging state)
        ;; TODO: Where's the actual communication happening?
        ;; All I really care about right here, right now is
        ;; establishing the heartbeat connection.
+
+       ;; TODO:
+       ;; I've screwed up the data flow. I'm piping a mouse
+       ;; message into the control channel. It really should be
+       ;; transmitted to the Client.
+       (trace (RuntimeException. "Start here"))
+       ;; Instead, it's winding up back here, and getting treated
+       ;; as an FSM. This is a Bad Thing(TM)!
+       (trace "Communications Loop Received\n" 
+              msg "\nfrom control channel")
        (let [next-state (fsm/transition! @fsm-atom msg true)]
          ;; TODO: I don't think this is really even all that close
          ;; to what I want.
@@ -397,48 +416,57 @@ There's no excuse for the current sorry state of things, except that
 I'm trying to remember/figure out how all the pieces fit together."
   [[delta time] params]
   (trace "Update callback: " time " -- " params)
-  (if-let [actual-update (:update-function params)]
-    (do
-      (trace "Update Function: " actual-update)
-      (try
-        (let [drawer (:draw-function params)
-              updated (actual-update params)]
-          (trace drawer "\n" updated)
-          (drawer updated)
-          updated)
-        (catch RuntimeException e
-          ;; This seems even more debatable than catching a
-          ;; base Exception. This is the TopLevel. Anything
-          ;; could have gone wrong underneath. I need to verify
-          ;; that that part runs OK.
-          ;; And I need to let the user know that something has
-          ;; gone wrong.
-          ;; And, honestly, if an error has escaped up to this
-          ;; level, whatever let it escape was faulty and needs
-          ;; to die.
-          ;; I think some major architecture questions are
-          ;; involved here, except that it's probably really
-          ;; something stupid that I'm borking and just need
-          ;; to trace down and fix...making sure that user
-          ;; errors can't ever get to this level.
-          (error e)
-          (throw))
-        (catch Exception e
-          ;; I'm very strongly inclined to catch absolutely
-          ;; anything that went wrong here and just log/swallow
-          ;; it.
-          ;; As it stands, this is the equivalent of a Windows
-          ;; BSOD for pretty much anything that might have gone
-          ;; wrong.
-          ;; Which really means low-level hardware issues.
-          ;; Those probably do need to bubble up.
-          (error e)
-          (throw))))
-    (do
-      ;; Q: Do I actually care about this? I don't think I do.
-      ;; Well, at least, not after I figure out why my current
-      ;; incarnation is a complete and total FAIL.
-      (throw (RuntimeException. "Missing update function. Fail")))))
+  (try
+    (if-let [actual-update (:update-function params)]
+      (do
+        (trace "Update Function: " actual-update)
+        ;; This seems even more debatable than catching a
+        ;; base Exception. This is the TopLevel. Anything
+        ;; could have gone wrong underneath. I need to verify
+        ;; that that part runs OK.
+        ;; And I need to let the user know that something has
+        ;; gone wrong.
+        ;; And, honestly, if an error has escaped up to this
+        ;; level, whatever let it escape was faulty and needs
+        ;; to die.
+        ;; I think some major architecture questions are
+        ;; involved here, except that it's probably really
+        ;; something stupid that I'm borking and just need
+        ;; to trace down and fix...making sure that user
+        ;; errors can't ever get to this level.
+        (if-let [updated (actual-update params)]
+          (if-let [drawer (:draw-function params)]
+            (do
+              (drawer updated)
+              updated)
+            (do
+              (throw+ {:error (str 
+                               "Update: No draw-function associated with\n" 
+                               params)})))
+          (throw+ {:error (str
+                           "Update: nothing updated in\n" params)}))
+        (throw+ {:error (str
+                         "Missing update function in\n"
+                         params)}))
+      (do
+        ;; Q: Do I actually care about this? I don't think I do.
+        ;; Well, at least, not after I figure out why my current
+        ;; incarnation is a complete and total FAIL.
+        (throw (RuntimeException. "Missing update function:\n" params))))
+    (catch RuntimeException e
+      (error e)
+      (throw))
+    (catch Exception e
+      ;; I'm very strongly inclined to catch absolutely
+      ;; anything that went wrong here and just log/swallow
+      ;; it.
+      ;; As it stands, this is the equivalent of a Windows
+      ;; BSOD for pretty much anything that might have gone
+      ;; wrong.
+      ;; Which really means low-level hardware issues.
+      ;; Those probably do need to bubble up.
+      (error e)
+      (throw))))
 
 (defn fps->millis
   "Silly utilitiy function. At x frames per second, each individual
@@ -520,13 +548,13 @@ utility functions that handle this better."
 
   ;; I *am* getting here pretty frequently
   ;; FIXME: Debugging only: check where FSM is hosed
-  (comment (if-let [fsm-atom (:fsm state)]
-             (if-let [fsm @fsm-atom]
-               (if-let [actual-state (:state fsm)]
-                 (trace "Have a state: " actual-state)
-                 (error "Missing state!"))
-               (error "Missing FSM in the atom!"))
-             (error "Missing FSM atom??")))
+  (comment) (if-let [fsm-atom (:fsm state)]
+              (if-let [fsm @fsm-atom]
+                (if-let [actual-state (:state fsm)]
+                  (trace "Have a state: " actual-state)
+                  (error "Missing state!"))
+                (error "Missing FSM in the atom!"))
+              (error "Missing FSM atom??"))
 
   (let [state (fsm/current-state (:fsm state))
         ;; FIXME: This is more than a little horrid.
