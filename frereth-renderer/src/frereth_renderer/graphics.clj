@@ -386,13 +386,59 @@ finish so we can start drawing whatever the server wants."
 ;; Obsolete...except that it totally isn't.
 ;; FIXME: Is any of this worth trying to save?
 (defn update
-  "Called each frame, just before display. This lets me make things stateful."
+  "Called each frame, just before display. This lets me make things stateful.
+An exception that escapes here crashes the entire app.
+As in, the window dies, nothing gets displayed, and the app seems
+to keep running, doing absolutely nothing.
+This is absolutely unacceptable.
+TODO: Wrap this entire thing in an exception handler. If something
+goes wrong, switch to an Error State, and draw a Mac Bomb.
+There's no excuse for the current sorry state of things, except that
+I'm trying to remember/figure out how all the pieces fit together."
   [[delta time] params]
-  (let [actual-update (:update-function params)
-        updated (actual-update params)
-        drawer (:draw-function params)]
-    (drawer updated)
-    updated))
+  (trace "Update callback: " time " -- " params)
+  (if-let [actual-update (:update-function params)]
+    (do
+      (trace "Update Function: " actual-update)
+      (try
+        (let [drawer (:draw-function params)
+              updated (actual-update params)]
+          (trace drawer "\n" updated)
+          (drawer updated)
+          updated)
+        (catch RuntimeException e
+          ;; This seems even more debatable than catching a
+          ;; base Exception. This is the TopLevel. Anything
+          ;; could have gone wrong underneath. I need to verify
+          ;; that that part runs OK.
+          ;; And I need to let the user know that something has
+          ;; gone wrong.
+          ;; And, honestly, if an error has escaped up to this
+          ;; level, whatever let it escape was faulty and needs
+          ;; to die.
+          ;; I think some major architecture questions are
+          ;; involved here, except that it's probably really
+          ;; something stupid that I'm borking and just need
+          ;; to trace down and fix...making sure that user
+          ;; errors can't ever get to this level.
+          (error e)
+          (throw))
+        (catch Exception e
+          ;; I'm very strongly inclined to catch absolutely
+          ;; anything that went wrong here and just log/swallow
+          ;; it.
+          ;; As it stands, this is the equivalent of a Windows
+          ;; BSOD for pretty much anything that might have gone
+          ;; wrong.
+          ;; Which really means low-level hardware issues.
+          ;; Those probably do need to bubble up.
+          (error e)
+          (throw))))
+    (do
+      ;; Q: Do I actually care about this? I don't think I do.
+      ;; Well, at least, not after I figure out why my current
+      ;; incarnation is a complete and total FAIL.
+      (throw (RuntimeException. "Missing update function. Fail")))))
 
 (defn fps->millis
   "Silly utilitiy function. At x frames per second, each individual
