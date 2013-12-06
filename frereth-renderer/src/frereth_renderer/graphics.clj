@@ -5,7 +5,7 @@
             [penumbra.app :as app]
             [penumbra.app.core :as core]
             [penumbra.opengl :as gl]
-            [slingshot.slingshot :refer (throw+)]
+            [slingshot.slingshot :refer (throw+ try+)]
             [taoensso.timbre :as timbre
              :refer [ trace debug info warn error fatal spy with-log-level]])
   (:gen-class))
@@ -440,19 +440,39 @@ I'm trying to remember/figure out how all the pieces fit together."
               (drawer updated)
               updated)
             (do
-              (throw+ {:error (str 
-                               "Update: No draw-function associated with\n" 
-                               params)})))
-          (throw+ {:error (str
-                           "Update: nothing updated in\n" params)}))
-        (throw+ {:error (str
-                         "Missing update function in\n"
-                         params)}))
+              (comment (throw+ {:error (str 
+                                        "Update: No draw-function associated with\n" 
+                                        params)}))
+              (throw (RuntimeException. "Missing drawing function"))))
+          (do (comment (throw+ {:error (str
+                                        "Update: nothing updated in\n" params)}))
+              (throw (RuntimeException. "Missing updated"))))
+        ;; WTF? This seems to be causing an exception because a 
+        ;; PersistentArrayMap cannot be cast to java.lang.Throwable.
+        ;; Isn't that the entire point to slingshot??
+        (do
+          (let [obnoxious-message "**************************************************
+*
+* Look at me!!! <-----------------
+*
+******************************************************"]
+            (warn obnoxious-message))
+          ;; The next line happens before the error that doesn't make any sense.
+          (comment (intentional syntax error))
+          ;; I'm just not getting here.
+          (comment (error (str "Getting ready to throw a dictionary" params)))
+          ;; This isn't happening either.
+          (throw (RuntimeException. "Yep, this is the culprit"))
+          #_(comment (throw+ {:error (str
+                                    "Missing update function in\n"
+                                    params)}))))
       (do
         ;; Q: Do I actually care about this? I don't think I do.
         ;; Well, at least, not after I figure out why my current
         ;; incarnation is a complete and total FAIL.
         (throw (RuntimeException. "Missing update function:\n" params))))
+    (comment (catch :error e
+               (throw (RuntimeException. (str e)))))
     (catch RuntimeException e
       (error e)
       (throw))
