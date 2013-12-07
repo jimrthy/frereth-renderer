@@ -225,15 +225,19 @@ State: " state "\nMessaging: " (:messaging state)
        ;; All I really care about right here, right now is
        ;; establishing the heartbeat connection.
 
-       ;; TODO:
-       ;; I've screwed up the data flow. I'm piping a mouse
-       ;; message into the control channel. It really should be
-       ;; transmitted to the Client.
        (throw (RuntimeException. "Start here"))
-       ;; Instead, it's winding up back here, and getting treated
-       ;; as an FSM. This is a Bad Thing(TM)!
+
        (timbre/trace "Communications Loop Received\n" 
               msg "\nfrom control channel")
+
+       ;; This really isn't good enough. This also has to handle responses
+       ;; to UI requests. I'm torn between using yet another channel
+       ;; (to where?) for this and using penumbra's message queue.
+       ;; Then again, maybe requiring client apps to work with the
+       ;; FSM makes sense...except that now we're really talking about
+       ;; a multiple secondary FSMs which I have absolutely no control
+       ;; over. That doesn't exactly seem like a good recipe for a
+       ;; "happy path"       
        (let [next-state (fsm/transition! @fsm-atom msg true)]
          ;; TODO: I don't think this is really even all that close
          ;; to what I want.
