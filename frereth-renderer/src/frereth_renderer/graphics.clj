@@ -112,14 +112,15 @@ never gets called."
 ;;; That implies a tighter architectual coupling than I like. How can I
 ;;; avoid that?
 (defn notify-input [state message]
-  (timbre/trace "Input notification:\n" message)
+  (comment (timbre/trace "Input notification:\n" message "\n" state))
   (if-let [msg (:messaging state)]
-    (if-let [channel (:local-mq @msg)]
-      (async/go (async/>! channel message))
+    (if-let [channel (:user-input @msg)]
+      (do (async/go (async/>! channel message))
+          state)
       (timbre/error "Missing Message Queue channel for input notification\n("
              msg ")"))
     (timbre/error "State has no messaging member to submit input notification\n("
-           state ")")))
+           state ")\nMessage:\n" message)))
 
 (defn notify-key-input [state key which]
   (notify-input state {:what :key
@@ -135,8 +136,8 @@ never gets called."
   (notify-key-input state key :type))
 
 (defn notify-mouse-input [state which details]
-  (let [msg (str "Mouse Input\nWhich: " which "\nDetails:\n" details)]
-    (timbre/trace msg))
+  (comment (let [msg (str "Mouse Input\nWhich: " which "\nDetails:\n" details "\nState:\n" state)]
+             (timbre/trace msg)))
   (notify-input state {:what :mouse
                        :which (into details which)}))
 
@@ -147,9 +148,13 @@ never gets called."
                        :button button}))
 
 (defn mouse-move [[dx dy] [x y] state]
-  (notify-mouse-input state {:message :move}
-                      {:start [x y]
-                       :delta [dx dy]}))
+  (comment) (let [msg (str "Mouse Move @ (" x ", " y ")
+Delta: (" dx ", " dy ")
+State:\n" state)]
+              (timbre/debug msg))
+  (comment) (notify-mouse-input state {:message :move}
+                                {:start [x y]
+                                 :delta [dx dy]}))
 
 (defn mouse-button [state button location which]
   (notify-mouse-input state which {:location location
@@ -199,7 +204,7 @@ as vital...but it's a very close second in both
 categories.
 OTOH, this really belongs elsewhere."
   [state]
-  (let [control-channel (-> state :messaging deref :local-mq)
+  (let [control-channel (-> state :messaging deref :command)
         fsm-atom (:fsm state)]
     (timbre/trace "\n****************************************************
 Initializing Communications
@@ -224,7 +229,7 @@ State: " state "\nMessaging: " (:messaging state)
        ;; I've screwed up the data flow. I'm piping a mouse
        ;; message into the control channel. It really should be
        ;; transmitted to the Client.
-       (timbre/trace (RuntimeException. "Start here"))
+       (throw (RuntimeException. "Start here"))
        ;; Instead, it's winding up back here, and getting treated
        ;; as an FSM. This is a Bad Thing(TM)!
        (timbre/trace "Communications Loop Received\n" 
@@ -261,8 +266,6 @@ State: " state "\nMessaging: " (:messaging state)
 
 (defn init []
   (let [system-state (init-fsm)]
-    ;; Do have an agent here.
-    (comment)
     (timbre/info "Initial FSM state: " system-state)
     {:renderer nil
      :fsm system-state}))
@@ -283,10 +286,10 @@ State: " state "\nMessaging: " (:messaging state)
                         :fsm (:fsm graphics)}]
     (begin visual-details))
 
-  (comment (timbre/trace "**********************************************************
+  (comment) (timbre/trace "**********************************************************
 Kicking off the fsm. Original agent:\n" (:fsm graphics)
 "\nOriginal agent state:\n" @(:fsm graphics)
-"\n***********************************************************"))
+"\n***********************************************************")
 
   (let [renderer-state (:renderer graphics)
         ;;windowing-state (init-gl renderer-state)
@@ -330,6 +333,7 @@ Kicking off the fsm. Original agent:\n" (:fsm graphics)
    drawer]
   (comment (timbre/trace "Drawing a Basic Triangle")
            (pprint [width height angle drawer]))
+
   (let [w2 (/ width 2.0)
         h2 (/ height 2.0)]
     (gl/translate w2 h2 0)
@@ -373,6 +377,7 @@ Kicking off the fsm. Original agent:\n" (:fsm graphics)
 (defn draw-initial-splash
   "Rendering subsystem is up and ready to go. Waiting to hear from the client."
   [params]
+  (comment (timbre/trace "draw-initial-splash"))
   (draw-splash-triangle params 1.0))
 
 (defn draw-secondary-splash
@@ -416,7 +421,7 @@ goes wrong, switch to an Error State, and draw a Mac Bomb.
 There's no excuse for the current sorry state of things, except that
 I'm trying to remember/figure out how all the pieces fit together."
   [[delta time] params]
-  (timbre/trace "Update callback: " time " -- " params)
+  (comment (timbre/trace "Update callback: " time " -- " params))
   (manage
     (if-let [actual-update (:update-function params)]
       (do
@@ -455,12 +460,12 @@ I'm trying to remember/figure out how all the pieces fit together."
         ;; Q: Do I actually care about this? I don't think I do.
         ;; Well, at least, not after I figure out why my current
         ;; incarnation is a complete and total FAIL.
-        (let [obnoxious-message "**************************************************
+        (comment (let [obnoxious-message "**************************************************
 *
 * Look at me!!! <-----------------
 *
 ******************************************************"]
-          (timbre/warn obnoxious-message))
+                   (timbre/warn obnoxious-message)))
         ;; If there's no update function...oh well.
         ;; TODO: It should really be up to the client to install the
         ;; appropriate function that should get called here, though it shouldn't
@@ -487,7 +492,9 @@ I'm trying to remember/figure out how all the pieces fit together."
       ;; Which really means low-level hardware issues.
       ;; Those probably do need to bubble up.
       (timbre/error e)
-      (throw))))
+      (throw)))
+  ;; TODO: This almost definitely needs to return the updated state
+  )
 
 (defn fps->millis
   "Silly utilitiy function. At x frames per second, each individual
@@ -510,7 +517,7 @@ utility functions that handle this better."
            ;; This function shouldn't last long at all.
            (let [initial-time (System/currentTimeMillis)
                  frame-length  (fps->millis 60)
-                 controller (-> params :messaging :local-mq)]
+                 controller (-> params :messaging :command)]
              (loop [params (into params {:update-function update-initial-splash
                                          :draw-function draw-initial-splash
                                          :last-time initial-time
@@ -572,34 +579,45 @@ utility functions that handle this better."
   (comment) (if-let [fsm-atom (:fsm state)]
               (if-let [fsm @fsm-atom]
                 (if-let [actual-state (:state fsm)]
-                  (timbre/trace "Have a state: " actual-state)
+                  (do 
+                    (comment (timbre/trace "Have a state: " actual-state)))
                   (timbre/error "Missing state!"))
                 (timbre/error "Missing FSM in the atom!"))
-              (timbre/error "Missing FSM atom??"))
+              (raise {:error :missing-fsm
+                      :state state
+                      :message "Missing FSM atom??"}))
 
-  (let [state (fsm/current-state (:fsm state))
-        ;; FIXME: This is more than a little horrid.
-        ;; Q: How can I improve it? Esp. given the constraint that
-        ;; clojure multimethods dispatch slowly.
-        ;; Is this a situation where protocols might actually be
-        ;; appropriate?
-        ;; A: For now, that's premature optimization. Switching
-        ;; to a multimethod is probably an excellent idea, though.
-        drawer
-        (condp = state
-          :__dead draw-dead
-          :disconnected draw-initial-splash
-          :waiting-for-server draw-secondary-splash
-          :server-connected draw-final-splash
-          :main-life draw-main
-          draw-unknown-state)]
-    (comment (timbre/trace "Current Situation: " state))
-    (drawer state)
+  (manage
+   (if-let [state (fsm/current-state (:fsm state))]
+     (if-let [
+              ;; FIXME: This is more than a little horrid.
+              ;; Q: How can I improve it? Esp. given the constraint that
+              ;; clojure multimethods dispatch slowly.
+              ;; Is this a situation where protocols might actually be
+              ;; appropriate?
+              ;; A: For now, that's premature optimization. Switching
+              ;; to a multimethod is probably an excellent idea, though.
+              drawer
+              (condp = state
+                :__dead draw-dead
+                :disconnected draw-initial-splash
+                :waiting-for-server draw-secondary-splash
+                :server-connected draw-final-splash
+                :main-life draw-main
+                draw-unknown-state)]
+       (do
+         (comment (timbre/trace "Current Situation: " state drawer))
+         (drawer state)
 
-    ;; Signal to refresh and redraw the next frame.
-    ;; Overall, I probably don't want to do this. There will be
-    ;; screens that are basically static and don't need to be redrawn
-    ;; very often.
-    ;; That's an optimization for the future. For now, I need to get
-    ;; something minimalist working.
-    (app/repaint!)))
+         ;; Signal to refresh and redraw the next frame.
+         ;; Overall, I probably don't want to do this. There will be
+         ;; screens that are basically static and don't need to be redrawn
+         ;; very often.
+         ;; That's an optimization for the future. For now, I need to get
+         ;; something minimalist working.
+         (app/repaint!))
+       (timbre/error "Missing drawer for State: " state))
+     (do
+       ;; This seems very much like it should be a fatal error.
+       ;; TODO: Instead, switch the FSM over to an error state.
+       (timbre/error "FSM is missing state for: " state)))))

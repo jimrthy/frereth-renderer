@@ -65,9 +65,7 @@ java.library.path and that's good enough."
                  ;; it most likely implies a missing dependency in
                  ;; penumbra.
                  ;; TODO: Figure out where this actually belongs.
-                 [slick-util "1.0.0"]
-                 ;;[slingshot "0.10.3"]
-                 ]
+                 [slick-util "1.0.0"]]
   ;; Needed to get to lwjgl native libs...is this still true w/ penumbra?
   ;; Actually, since leiningen 2.1.0, probably not. This next entry seems
   ;; to be totally obsolete.
