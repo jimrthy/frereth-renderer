@@ -5,9 +5,9 @@
             [penumbra.app :as app]
             [penumbra.app.core :as core]
             [penumbra.opengl :as gl]
-            [slingshot.slingshot :refer (throw+ try+)]
-            [taoensso.timbre :as timbre
-             :refer [ trace debug info warn error fatal spy with-log-level]])
+            ;;[slingshot.slingshot :refer (throw+ try+)]
+            [taoensso.timbre :as timbre])
+  (:use ribol.core)
   (:gen-class))
 
 ;;;; FIXME: This namespace is getting too big. How much can I split out
@@ -33,8 +33,8 @@ Baby steps. I'm just trying to get that rope thrown across the gorge."
   ;; There's absolutely nothing happening in here now.
   (throw (RuntimeException. "Obsolete"))
 
-  (trace "Initializing window")
-  (spy state)
+  (timbre/trace "Initializing window")
+  (timbre/spy state)
   ;; Have to pass in the window in question.
   ;; As annoying as it is, that's the way Protocols work.
   ;; Changing something that basic in Penumbra means very
@@ -79,7 +79,7 @@ that there's just too much going on in here."
      ;; it later.
      (configure-windowing {}))
   ([params]
-     (trace "Configuring the Window. Params:\n" params)
+     (timbre/trace "Configuring the Window. Params:\n" params)
      (app/vsync! true)
      (gl/clear-color 0.5 0.0 0.5 0.0)
      params))
@@ -112,13 +112,13 @@ never gets called."
 ;;; That implies a tighter architectual coupling than I like. How can I
 ;;; avoid that?
 (defn notify-input [state message]
-  (trace "Input notification:\n" message)
+  (timbre/trace "Input notification:\n" message)
   (if-let [msg (:messaging state)]
     (if-let [channel (:local-mq @msg)]
       (async/go (async/>! channel message))
-      (error "Missing Message Queue channel for input notification\n("
+      (timbre/error "Missing Message Queue channel for input notification\n("
              msg ")"))
-    (error "State has no messaging member to submit input notification\n("
+    (timbre/error "State has no messaging member to submit input notification\n("
            state ")")))
 
 (defn notify-key-input [state key which]
@@ -136,7 +136,7 @@ never gets called."
 
 (defn notify-mouse-input [state which details]
   (let [msg (str "Mouse Input\nWhich: " which "\nDetails:\n" details)]
-    (trace msg))
+    (timbre/trace msg))
   (notify-input state {:what :mouse
                        :which (into details which)}))
 
@@ -176,7 +176,7 @@ never gets called."
   "Graphics first and foremost: the user needs eye candy ASAP.
 This makes that happen"
   [visual-details]
-  (info "Kicking off penumbra window")
+  (timbre/info "Kicking off penumbra window")
   (app/start
    {:close close
     :display display
@@ -201,14 +201,14 @@ OTOH, this really belongs elsewhere."
   [state]
   (let [control-channel (-> state :messaging deref :local-mq)
         fsm-atom (:fsm state)]
-    (trace "\n****************************************************
+    (timbre/trace "\n****************************************************
 Initializing Communications
 State: " state "\nMessaging: " (:messaging state)
            "\nControl Channel: " control-channel "\nFSM Atom: " fsm-atom
            "\n****************************************************")
     (async/go
      (loop [msg (async/<! control-channel)]
-       (trace "Control Message:\n" msg)
+       (timbre/trace "Control Message:\n" msg)
 
        ;; FIXME: Need a "quit" message.
        ;; This approach misses quite a few points, I think.
@@ -224,10 +224,10 @@ State: " state "\nMessaging: " (:messaging state)
        ;; I've screwed up the data flow. I'm piping a mouse
        ;; message into the control channel. It really should be
        ;; transmitted to the Client.
-       (trace (RuntimeException. "Start here"))
+       (timbre/trace (RuntimeException. "Start here"))
        ;; Instead, it's winding up back here, and getting treated
        ;; as an FSM. This is a Bad Thing(TM)!
-       (trace "Communications Loop Received\n" 
+       (timbre/trace "Communications Loop Received\n" 
               msg "\nfrom control channel")
        (let [next-state (fsm/transition! @fsm-atom msg true)]
          ;; TODO: I don't think this is really even all that close
@@ -235,14 +235,14 @@ State: " state "\nMessaging: " (:messaging state)
          (when-not (= next-state :__dead)
            (recur (async/<! control-channel)))))
 
-     (info "Communications loop exiting")
+     (timbre/info "Communications loop exiting")
      ;; TODO: Kill the window!!
      (let [terminal-channel (-> state :messaging deref :terminator)]
        ;; Realistically, I want this to be synchronous.
        ;; Can that happen inside a go block?
        ;; Oh well. It shouldn't matter all that much.
        (async/>! terminal-channel :game-over)))
-    (trace "Communications Thread set up")))
+    (timbre/trace "Communications Thread set up")))
 
 (defn begin
   "Kick off the threads where everything interesting happens."
@@ -252,23 +252,23 @@ State: " state "\nMessaging: " (:messaging state)
   ;; be interesting to see. (I've seen lots of posts complaining about trying to
   ;; get Cocoa apps doing anything when the graphics try to happen on anything
   ;; except the main thread)
-  (trace "Starting graphics thread")
+  (timbre/trace "Starting graphics thread")
   (async/thread
     (begin-eye-candy-thread visual-details))
-  (trace "Starting communications thread")
+  (timbre/trace "Starting communications thread")
   (begin-communications visual-details)
-  (trace "Communications begun"))
+  (timbre/trace "Communications begun"))
 
 (defn init []
   (let [system-state (init-fsm)]
     ;; Do have an agent here.
     (comment)
-    (info "Initial FSM state: " system-state)
+    (timbre/info "Initial FSM state: " system-state)
     {:renderer nil
      :fsm system-state}))
 
 (defn start [graphics messaging]
-  (info "Starting graphics system")
+  (timbre/info "Starting graphics system")
   (let [;; TODO: Don't use magic numbers.
         ;; TODO: Remember window positions from last run and reset them here.
         ;; N.B.: That really means a custom classloader. Which must happen
@@ -283,7 +283,7 @@ State: " state "\nMessaging: " (:messaging state)
                         :fsm (:fsm graphics)}]
     (begin visual-details))
 
-  (comment (trace "**********************************************************
+  (comment (timbre/trace "**********************************************************
 Kicking off the fsm. Original agent:\n" (:fsm graphics)
 "\nOriginal agent state:\n" @(:fsm graphics)
 "\n***********************************************************"))
@@ -291,9 +291,9 @@ Kicking off the fsm. Original agent:\n" (:fsm graphics)
   (let [renderer-state (:renderer graphics)
         ;;windowing-state (init-gl renderer-state)
         ]
-    (trace "Updating the FSM")
+    (timbre/trace "Updating the FSM")
     (fsm/start! (:fsm graphics) :disconnected)
-    (trace "Graphics Started")
+    (timbre/trace "Graphics Started")
     graphics))
 
 (defn stop [universe]
@@ -328,7 +328,7 @@ Kicking off the fsm. Original agent:\n" (:fsm graphics)
 (defn draw-basic-triangles
   [{:keys [width height angle] :or {width 1 height 1 angle 0}}
    drawer]
-  (comment (println "Drawing a Basic Triangle")
+  (comment (timbre/trace "Drawing a Basic Triangle")
            (pprint [width height angle drawer]))
   (let [w2 (/ width 2.0)
         h2 (/ height 2.0)]
@@ -367,7 +367,7 @@ Kicking off the fsm. Original agent:\n" (:fsm graphics)
   [params]
   ;; FIXME: Fill the screen with whitespace, or something vaguely
   ;; interesting
-  (comment (trace "Drawing dead"))
+  (comment) (timbre/trace "Drawing dead")
   (draw-splash-triangle params 0.5))
 
 (defn draw-initial-splash
@@ -404,6 +404,7 @@ finish so we can start drawing whatever the server wants."
 
 ;; Obsolete...except that it totally isn't.
 ;; FIXME: Is any of this worth trying to save?
+;; Apparently it's pretty darn important. And *far* too big.
 (defn update
   "Called each frame, just before display. This lets me make things stateful.
 An exception that escapes here crashes the entire app.
@@ -415,11 +416,11 @@ goes wrong, switch to an Error State, and draw a Mac Bomb.
 There's no excuse for the current sorry state of things, except that
 I'm trying to remember/figure out how all the pieces fit together."
   [[delta time] params]
-  (trace "Update callback: " time " -- " params)
-  (try
+  (timbre/trace "Update callback: " time " -- " params)
+  (manage
     (if-let [actual-update (:update-function params)]
       (do
-        (trace "Update Function: " actual-update)
+        (timbre/trace "Update Function: " actual-update)
         ;; This seems even more debatable than catching a
         ;; base Exception. This is the TopLevel. Anything
         ;; could have gone wrong underneath. I need to verify
@@ -440,41 +441,41 @@ I'm trying to remember/figure out how all the pieces fit together."
               (drawer updated)
               updated)
             (do
-              (comment (throw+ {:error (str 
-                                        "Update: No draw-function associated with\n" 
-                                        params)}))
-              (throw (RuntimeException. "Missing drawing function"))))
-          (do (comment (throw+ {:error (str
-                                        "Update: nothing updated in\n" params)}))
-              (throw (RuntimeException. "Missing updated"))))
+              (comment) (raise {:error "Update: No draw-function" 
+                                :params params})
+              (comment (throw (RuntimeException. "Missing drawing function")))))
+          (do (raise {:error "Update: nothing updated"
+                      :params params})
+              (comment (throw (RuntimeException. "Missing updated")))))
         ;; WTF? This seems to be causing an exception because a 
         ;; PersistentArrayMap cannot be cast to java.lang.Throwable.
         ;; Isn't that the entire point to slingshot??
-        (do
-          (let [obnoxious-message "**************************************************
-*
-* Look at me!!! <-----------------
-*
-******************************************************"]
-            (warn obnoxious-message))
-          ;; The next line happens before the error that doesn't make any sense.
-          (comment (intentional syntax error))
-          ;; I'm just not getting here.
-          (comment (error (str "Getting ready to throw a dictionary" params)))
-          ;; This isn't happening either.
-          (throw (RuntimeException. "Yep, this is the culprit"))
-          #_(comment (throw+ {:error (str
-                                    "Missing update function in\n"
-                                    params)}))))
+        )
       (do
         ;; Q: Do I actually care about this? I don't think I do.
         ;; Well, at least, not after I figure out why my current
         ;; incarnation is a complete and total FAIL.
-        (throw (RuntimeException. "Missing update function:\n" params))))
-    (comment (catch :error e
-               (throw (RuntimeException. (str e)))))
+        (let [obnoxious-message "**************************************************
+*
+* Look at me!!! <-----------------
+*
+******************************************************"]
+          (timbre/warn obnoxious-message))
+        ;; If there's no update function...oh well.
+        ;; TODO: It should really be up to the client to install the
+        ;; appropriate function that should get called here, though it shouldn't
+        ;; have a clue about what's actually happening.
+        (comment (raise {:error "Missing update function in\n"
+                         :params params}))))
+    ;; TODO: Error handling here seems problematic.
+    ;; Then again, it seems a whole lot nicer than letting any errors
+    ;; escape.
+    ;; TODO: At the very least, this seems pretty much exactly what Dire was
+    ;; designed to handle.
+    (on :error [error params]
+        (timbre/error (str error ": " params)))
     (catch RuntimeException e
-      (error e)
+      (timbre/error e)
       (throw))
     (catch Exception e
       ;; I'm very strongly inclined to catch absolutely
@@ -485,7 +486,7 @@ I'm trying to remember/figure out how all the pieces fit together."
       ;; wrong.
       ;; Which really means low-level hardware issues.
       ;; Those probably do need to bubble up.
-      (error e)
+      (timbre/error e)
       (throw))))
 
 (defn fps->millis
@@ -571,10 +572,10 @@ utility functions that handle this better."
   (comment) (if-let [fsm-atom (:fsm state)]
               (if-let [fsm @fsm-atom]
                 (if-let [actual-state (:state fsm)]
-                  (trace "Have a state: " actual-state)
-                  (error "Missing state!"))
-                (error "Missing FSM in the atom!"))
-              (error "Missing FSM atom??"))
+                  (timbre/trace "Have a state: " actual-state)
+                  (timbre/error "Missing state!"))
+                (timbre/error "Missing FSM in the atom!"))
+              (timbre/error "Missing FSM atom??"))
 
   (let [state (fsm/current-state (:fsm state))
         ;; FIXME: This is more than a little horrid.
@@ -592,7 +593,7 @@ utility functions that handle this better."
           :server-connected draw-final-splash
           :main-life draw-main
           draw-unknown-state)]
-    (comment (trace "Current Situation: " state))
+    (comment (timbre/trace "Current Situation: " state))
     (drawer state)
 
     ;; Signal to refresh and redraw the next frame.

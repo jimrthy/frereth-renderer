@@ -32,8 +32,8 @@ java.library.path and that's good enough."
 
   ;; Big swaths of these are only needed because I haven't found the time
   ;; to properly configure my local maven repo.
-  :dependencies [[byte-transforms "0.1.0"]
-                 [com.taoensso/timbre "2.6.2"]
+  :dependencies [[byte-transforms "0.1.1"]
+                 [com.taoensso/timbre "2.7.1"]
                  [jimrthy/cljeromq "0.1.0-SNAPSHOT"]
                  [jimrthy/penumbra "0.6.6-SNAPSHOT"]
                  [kephale/cantor "0.4.1"] ; Deprecated math optimization library
@@ -43,17 +43,31 @@ java.library.path and that's good enough."
                  [org.clojure/clojure "1.5.1"]
                  [org.clojure/core.async "0.1.222.0-83d0c2-alpha"]
                  [org.clojure/core.contracts "0.0.5"]
-                 [org.clojure/math.combinatorics "0.0.2"]
+                 [org.clojure/math.combinatorics "0.0.7"]
+                 ;; 0mq is at 4.0.3, while jeromq is only at 3.2.2.
+                 ;; This is pretty vital for security considerations,
+                 ;; though those aren't so much an issue for this particular
+                 ;; layer.
+                 ;; TODO: Switch back to using the native java bindings.
                  [org.jeromq/jeromq "0.3.0-SNAPSHOT"]
+                 ;; TODO: 0.1.4 has been released. Get this updated to match!
                  [org.zeromq/cljzmq "0.1.1" :exclusions [org.zeromq/jzmq]]
                  ;; TODO: An nrepl client?
+
+                 [im.chit/ribol "0.3.3"]
 
                  ;; FIXME: Is this more appropriate here or in frereth-client?
                  ;; Is it worth an external dependency at all? Especially since
                  ;; this *is* such an important part of frereth's core?
-                 [simplecs "0.1.0"]
+                 ;;[simplecs "0.1.0"]
+                 ;; For pulling things like image, sound, and font files into
+                 ;; LWJGL. I really shouldn't need this here. Seems like
+                 ;; it most likely implies a missing dependency in
+                 ;; penumbra.
+                 ;; TODO: Figure out where this actually belongs.
                  [slick-util "1.0.0"]
-                 [slingshot "0.10.3"]]
+                 ;;[slingshot "0.10.3"]
+                 ]
   ;; Needed to get to lwjgl native libs...is this still true w/ penumbra?
   ;; Actually, since leiningen 2.1.0, probably not. This next entry seems
   ;; to be totally obsolete.
@@ -65,10 +79,10 @@ java.library.path and that's good enough."
   :profiles {:uberjar {:aot :all}
              :dev {:source-paths ["dev"]
                    :dependencies  [[clj-ns-browser "1.3.1"]
-                                   [midje "1.5.1"]
+                                   [midje "1.6.0"]
                                    [night-vision "0.1.0-SNAPSHOT"]
-                                   [org.clojure/tools.namespace "0.2.3"]
-                                   [org.clojure/java.classpath "0.2.0"]
+                                   [org.clojure/tools.namespace "0.2.4"]
+                                   [org.clojure/java.classpath "0.2.1"]
                                    ;; Umm...do I really not want this for
                                    ;; real??
                                    [org.clojure/tools.logging "0.2.6"]
