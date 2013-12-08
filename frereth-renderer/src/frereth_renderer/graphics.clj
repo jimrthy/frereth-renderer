@@ -81,7 +81,22 @@ that there's just too much going on in here."
   ([params]
      (timbre/trace "Configuring the Window. Params:\n" params)
      (app/vsync! true)
+     ;; TODO: Is this getting called at all?
+     ;; Because the background color still looks extremely black.
      (gl/clear-color 0.5 0.0 0.5 0.0)
+
+     (comment
+       ;; I don't want to do this!!
+       ;; Each client/world needs to set up its own viewing matrix.
+       ;; Until I get to that point, I need a basic sample idea that
+       ;; pretends to do what they need, if only because I want some
+       ;; sort of visual feedback.
+       ;; This doesn't seem to make any actual difference. As a bonus,
+       ;; closing the window on Windows doesn't actually work. I'm
+       ;; not getting any feedback about the error, either.
+       (gl/frustum-view 60.0 (/ (double 4) 3) 1.0 100.0)
+       (gl/load-identity))
+
      params))
 
 (defn reshape
@@ -362,9 +377,11 @@ Kicking off the fsm. Original agent:\n" (:fsm graphics)
             (let [color1 [intensity 0.0 0.0]
                   color2 [0.0 intensity 0.0]
                   color3 [0.0 0.0 intensity]
-                  vertex1 [100 0]
-                  vertex2 [-50 86.6]
-                  vertex3 [-50 -86.6]]
+                  ;; Try switching to the values that I'm using in
+                  ;; pen-sample that work.
+                  vertex1 [1 0]
+                  vertex2 [-1 0]
+                  vertex3 [0 1.86]]
               (draw-multi-colored-triangle
                [color1 color2 color3]
                [vertex1 vertex2 vertex3])))]

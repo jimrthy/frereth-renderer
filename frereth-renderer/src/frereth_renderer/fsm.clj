@@ -36,6 +36,10 @@ TODO: Would core.async be more appropriate than agents?"
   ;; The simplest thing that could possibly work
   (let [a (agent (into description {:state :__dead}))]
     (set-error-mode! a :fail)
+    ;; This is getting a little annoying in my debugging. I'm more
+    ;; than a little tempted to turn this into a class where I get to
+    ;; control its printed output. That seems like a really stupid
+    ;; reason to do something so drastic.
     a))
 
 (defn transition!
