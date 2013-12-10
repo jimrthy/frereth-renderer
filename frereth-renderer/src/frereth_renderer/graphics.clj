@@ -82,6 +82,8 @@ that there's just too much going on in here."
      (timbre/trace "Configuring the Window. Params:\n" params)
      (app/vsync! true)
      (gl/clear-color 0.5 0.0 0.5 0.0)
+     (gl/frustum-view 60.0 (/ (double 4) 3) 1.0 100.0)
+     (gl/load-identity)
      params))
 
 (defn reshape
@@ -340,13 +342,15 @@ Kicking off the fsm. Original agent:\n" (:fsm graphics)
 
   (let [w2 (/ width 2.0)
         h2 (/ height 2.0)]
-    (gl/translate w2 h2 0)
+    ;;(gl/translate w2 h2 0)
+    (gl/translate 0 -0.93 -3)
     (gl/rotate angle 0 0 1)
     (gl/scale 2 2 1)
-    (gl/draw-triangles drawer)))
+    (gl/draw-triangles (drawer))))
 
 (defn draw-colored-vertex 
   [color vertex]
+  (comment (timbre/trace "Drawing a " color " vertex at " vertex))
   (gl/color (color 0) (color 1) (color 2))
   (gl/vertex (vertex 0) (vertex 1)))
 
@@ -359,12 +363,14 @@ Kicking off the fsm. Original agent:\n" (:fsm graphics)
 (defn draw-splash-triangle
   [params intensity]
   (letfn [(minimalist-triangle []
+            (comment (timbre/trace "Drawing a Splash"))
             (let [color1 [intensity 0.0 0.0]
                   color2 [0.0 intensity 0.0]
                   color3 [0.0 0.0 intensity]
-                  vertex1 [100 0]
-                  vertex2 [-50 86.6]
-                  vertex3 [-50 -86.6]]
+                  vertex1 [1 0]  ; [100 0]
+                  vertex2 [-1 0] ; [-50 86.6]
+                  vertex3 [0 1.86] ; [-50 -86.6]
+                  ]
               (draw-multi-colored-triangle
                [color1 color2 color3]
                [vertex1 vertex2 vertex3])))]
