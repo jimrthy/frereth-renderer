@@ -81,9 +81,21 @@ that there's just too much going on in here."
   ([params]
      (timbre/trace "Configuring the Window. Params:\n" params)
      (app/vsync! true)
+     ;; I don't want to do this!!
+     ;; Each client/world needs to set up its own viewing matrix.
+     ;; Until I get to that point, I need a basic sample idea that
+     ;; pretends to do what they need, if only because I want some
+     ;; sort of visual feedback.
+     ;; This doesn't seem to make any actual difference. As a bonus,
+     ;; closing the window on Windows doesn't actually work. I'm
+     ;; not getting any feedback about the error, either.
      (gl/clear-color 0.5 0.0 0.5 0.0)
      (gl/frustum-view 60.0 (/ (double 4) 3) 1.0 100.0)
      (gl/load-identity)
+
+     (comment
+       (gl/frustum-view 60.0 (/ (double 4) 3) 1.0 100.0)
+       (gl/load-identity))
      params))
 
 (defn reshape
@@ -343,7 +355,7 @@ Kicking off the fsm. Original agent:\n" (:fsm graphics)
   (let [w2 (/ width 2.0)
         h2 (/ height 2.0)]
     ;;(gl/translate w2 h2 0)
-    (gl/translate 0 -0.93 -3)
+    (gl/translate 0 -1.5 -3)
     (gl/rotate angle 0 0 1)
     (gl/scale 2 2 1)
     (gl/draw-triangles (drawer))))
@@ -367,16 +379,20 @@ Kicking off the fsm. Original agent:\n" (:fsm graphics)
             (let [color1 [intensity 0.0 0.0]
                   color2 [0.0 intensity 0.0]
                   color3 [0.0 0.0 intensity]
-                  vertex1 [1 0]  ; [100 0]
-                  vertex2 [-1 0] ; [-50 86.6]
-                  vertex3 [0 1.86] ; [-50 -86.6]
+                  vertex1 [1 0]
+                  vertex2 [-1 0]
+                  vertex3 [0 1.5]
                   ]
               (draw-multi-colored-triangle
                [color1 color2 color3]
                [vertex1 vertex2 vertex3])))]
     (draw-basic-triangles params minimalist-triangle)))
 
-(defn draw-dead
+(defmulti draw
+  (fn [state]
+     (fsm/current-state (:fsm state))))
+
+(defmethod draw :__dead[params]
   "Initializing...absolutely nothing interesting has happened yet"
   [params]
   ;; FIXME: Fill the screen with whitespace, or something vaguely
@@ -384,27 +400,38 @@ Kicking off the fsm. Original agent:\n" (:fsm graphics)
   (comment) (timbre/trace "Drawing dead")
   (draw-splash-triangle params 0.5))
 
-(defn draw-initial-splash
+(defmethod draw :disconnected [params]
   "Rendering subsystem is up and ready to go. Waiting to hear from the client."
   [params]
   (comment (timbre/trace "draw-initial-splash"))
   (draw-splash-triangle params 1.0))
 
-(defn draw-secondary-splash
-  "Have connected to the client. Waiting to hear back from the server"
-  [params]
+(defn draw-secondary-splash [params]
   (let [angle (:angle params)
         radians (Math/toRadians angle)
         cos (Math/cos radians)
         intensity (Math/abs cos)]
     (draw-splash-triangle params intensity)))
 
-(defn draw-final-splash
+(defmethod draw :waiting-for-server [params]
+  "Have connected to the client. Waiting to hear back from the server"
+  [params]
+  (draw-secondary-splash params))
+
+(defmethod draw :server-connected [params]
   "Client's connected to the server. Just waiting for the handshake to
 finish so we can start drawing whatever the server wants."
   [params]
   (draw-secondary-splash (into params
                                {:angle (* (:angle params) 2)})))
+
+(defmethod draw :main-life [params]
+  (throw (RuntimeException. "Draw whatever the client has told us to!")))
+
+(defmethod draw :default [params]
+  ;; FIXME: Do something better here.
+  ;; Think Sad Mac or BSOD.
+  (throw (RuntimeException. (str "Unknown State: " params))))
 
 (defn update-initial-splash
   "Rotate the triangle periodically"
@@ -431,7 +458,9 @@ goes wrong, switch to an Error State, and draw a Mac Bomb.
 There's no excuse for the current sorry state of things, except that
 I'm trying to remember/figure out how all the pieces fit together."
   [[delta time] params]
-  (comment (timbre/trace "Update callback: " time " -- " params))
+  (comment (timbre/trace "Update callback: " time " -- " params)
+           (pprint params)
+           (throw (RuntimeException. "Stop here for now.")))
   (manage
     (if-let [actual-update (:update-function params)]
       (do
@@ -470,12 +499,12 @@ I'm trying to remember/figure out how all the pieces fit together."
         ;; Q: Do I actually care about this? I don't think I do.
         ;; Well, at least, not after I figure out why my current
         ;; incarnation is a complete and total FAIL.
-        (comment (let [obnoxious-message "**************************************************
+        (comment) (let [obnoxious-message "**************************************************
 *
 * Look at me!!! <-----------------
 *
 ******************************************************"]
-                   (timbre/warn obnoxious-message)))
+                    (timbre/warn obnoxious-message))
         ;; If there's no update function...oh well.
         ;; TODO: It should really be up to the client to install the
         ;; appropriate function that should get called here, though it shouldn't
@@ -566,14 +595,6 @@ utility functions that handle this better."
                                         (throw (RuntimeException. (str "Unhandled transition:"
                                                                        value))))))))))))))))
 
-(defn draw-unknown-state [params]
-  ;; FIXME: Do something better here.
-  ;; Think Sad Mac or BSOD.
-  (throw (RuntimeException. (str "Unknown State: " params))))
-
-(defn draw-main [params]
-  (throw (RuntimeException. "Draw whatever the client has told us to!")))
-
 (defn display
   "Draw the next frame."
   [[delta time] state]
@@ -586,48 +607,14 @@ utility functions that handle this better."
 
   ;; I *am* getting here pretty frequently
   ;; FIXME: Debugging only: check where FSM is hosed
-  (comment) (if-let [fsm-atom (:fsm state)]
-              (if-let [fsm @fsm-atom]
-                (if-let [actual-state (:state fsm)]
-                  (do 
-                    (comment (timbre/trace "Have a state: " actual-state)))
-                  (timbre/error "Missing state!"))
-                (timbre/error "Missing FSM in the atom!"))
-              (raise {:error :missing-fsm
-                      :state state
-                      :message "Missing FSM atom??"}))
-
-  (manage
-   (if-let [state (fsm/current-state (:fsm state))]
-     (if-let [
-              ;; FIXME: This is more than a little horrid.
-              ;; Q: How can I improve it? Esp. given the constraint that
-              ;; clojure multimethods dispatch slowly.
-              ;; Is this a situation where protocols might actually be
-              ;; appropriate?
-              ;; A: For now, that's premature optimization. Switching
-              ;; to a multimethod is probably an excellent idea, though.
-              drawer
-              (condp = state
-                :__dead draw-dead
-                :disconnected draw-initial-splash
-                :waiting-for-server draw-secondary-splash
-                :server-connected draw-final-splash
-                :main-life draw-main
-                draw-unknown-state)]
-       (do
-         (comment (timbre/trace "Current Situation: " state drawer))
-         (drawer state)
-
-         ;; Signal to refresh and redraw the next frame.
-         ;; Overall, I probably don't want to do this. There will be
-         ;; screens that are basically static and don't need to be redrawn
-         ;; very often.
-         ;; That's an optimization for the future. For now, I need to get
-         ;; something minimalist working.
-         (app/repaint!))
-       (timbre/error "Missing drawer for State: " state))
-     (do
-       ;; This seems very much like it should be a fatal error.
-       ;; TODO: Instead, switch the FSM over to an error state.
-       (timbre/error "FSM is missing state for: " state)))))
+  (if-let [fsm-atom (:fsm state)]
+    (if-let [fsm @fsm-atom]
+      (if-let [actual-state (:state fsm)]
+        (do 
+          (comment (timbre/trace "Have a state: " actual-state)))
+        (timbre/error "Missing state!"))
+      (timbre/error "Missing FSM in the atom!"))
+    (raise {:error :missing-fsm
+            :state state
+            :message "Missing FSM atom??"}))
+  (draw state))
