@@ -162,13 +162,13 @@ never gets called."
                        :button button}))
 
 (defn mouse-move [[dx dy] [x y] state]
-  (comment) (let [msg (str "Mouse Move @ (" x ", " y ")
+  (comment (let [msg (str "Mouse Move @ (" x ", " y ")
 Delta: (" dx ", " dy ")
 State:\n" state)]
-              (timbre/debug msg))
-  (comment) (notify-mouse-input state {:message :move}
-                                {:start [x y]
-                                 :delta [dx dy]}))
+             (timbre/debug msg)))
+  (notify-mouse-input state {:message :move}
+                      {:start [x y]
+                       :delta [dx dy]}))
 
 (defn mouse-button [state button location which]
   (notify-mouse-input state which {:location location
@@ -288,6 +288,17 @@ State: " state "\nMessaging: " (:messaging state)
     {:renderer nil
      :fsm system-state}))
 
+;; Don't want to declare this here. Really shouldn't be calling it directly
+;; at all. Honestly, need something like a var that I can override with
+;; the current view.
+;; Then again, that should probably be a member of the "global" state that's
+;; getting created below in visual-details.
+;; Then I should be able to update that member as needed from the communications
+;; thread from the client. It probably does not make sense to update it
+;; based on anything that would happen on the renderer side, unless I decide
+;; that it makes sense to run "window managers" here.
+;; So plan on that, for now.
+(declare update-initial-splash)
 (defn start [graphics messaging]
   (timbre/info "Starting graphics system")
   (let [;; TODO: Don't use magic numbers.
@@ -301,7 +312,10 @@ State: " state "\nMessaging: " (:messaging state)
                         :height 768
                         :title "Frereth"
                         :messaging messaging
-                        :fsm (:fsm graphics)}]
+                        :fsm (:fsm graphics)
+                        ;; This next is pretty much totally invalid long-term.
+                        ;; But it's a decent baby step.
+                        :update-function update-initial-splash}]
     (begin visual-details))
 
   (comment) (timbre/trace "**********************************************************
@@ -435,18 +449,16 @@ finish so we can start drawing whatever the server wants."
 
 (defn update-initial-splash
   "Rotate the triangle periodically"
-  [{:keys [width height angle last-time] :as params}]
-  (let [cur-time (System/currentTimeMillis)
-        delta-time (- cur-time last-time)
-        next-angle (+ (* delta-time 0.05) angle)
+  [{:keys [angle delta-t] 
+    :or {angle 0 delta-t 0}
+    :as params}]
+  (pprint params)
+  (let [next-angle (+ (* delta-t 8) angle)
         next-angle (if (>= next-angle 360.0)
                      (- next-angle 360.0)
                      next-angle)]
-    (into params {:angle next-angle :last-time cur-time})))
+    (into params {:angle next-angle})))
 
-;; Obsolete...except that it totally isn't.
-;; FIXME: Is any of this worth trying to save?
-;; Apparently it's pretty darn important. And *far* too big.
 (defn update
   "Called each frame, just before display. This lets me make things stateful.
 An exception that escapes here crashes the entire app.
@@ -458,39 +470,49 @@ goes wrong, switch to an Error State, and draw a Mac Bomb.
 There's no excuse for the current sorry state of things, except that
 I'm trying to remember/figure out how all the pieces fit together."
   [[delta time] params]
-  (comment (timbre/trace "Update callback: " time " -- " params)
-           (pprint params)
-           (throw (RuntimeException. "Stop here for now.")))
+    (comment
+           (timbre/trace "Update callback: " time " -- " params "\nDelta: " delta)
+           (pprint params))
   (manage
+   ;; this value was being set in run-splash.
+   ;; Since that is no longer getting called, this no longer gets
+   ;; set. Duh.
     (if-let [actual-update (:update-function params)]
       (do
-        (timbre/trace "Update Function: " actual-update)
-        ;; This seems even more debatable than catching a
-        ;; base Exception. This is the TopLevel. Anything
-        ;; could have gone wrong underneath. I need to verify
-        ;; that that part runs OK.
-        ;; And I need to let the user know that something has
-        ;; gone wrong.
-        ;; And, honestly, if an error has escaped up to this
-        ;; level, whatever let it escape was faulty and needs
-        ;; to die.
-        ;; I think some major architecture questions are
-        ;; involved here, except that it's probably really
-        ;; something stupid that I'm borking and just need
-        ;; to trace down and fix...making sure that user
-        ;; errors can't ever get to this level.
-        (if-let [updated (actual-update params)]
-          (if-let [drawer (:draw-function params)]
+        (let [initial (into params {:delta-t delta})]
+          ;; This seems even more debatable than catching a
+          ;; base Exception. This is the TopLevel. Anything
+          ;; could have gone wrong underneath. I need to verify
+          ;; that that part runs OK.
+          ;; And I need to let the user know that something has
+          ;; gone wrong.
+          ;; And, honestly, if an error has escaped up to this
+          ;; level, whatever let it escape was faulty and needs
+          ;; to die.
+          ;; I think some major architecture questions are
+          ;; involved here, except that it's probably really
+          ;; something stupid that I'm borking and just need
+          ;; to trace down and fix...making sure that user
+          ;; errors can't ever get to this level.
+          (if-let [updated (actual-update initial)]
             (do
-              (drawer updated)
+              (comment (if-let [drawer (:draw-function updated)]
+                         (do
+                           ;; Does the return value of the drawer matter?
+                           (drawer updated)
+                           (println "From update, returning:")
+                           (pprint updated)
+                           updated)
+                         (do
+                           (comment) (raise {:error "Update: No draw-function" 
+                                             :params params})
+                           (comment (throw (RuntimeException. "Missing drawing function"))))))
+              ;; Actually, this should not be calling draw.
+              (comment (draw updated))
               updated)
-            (do
-              (comment) (raise {:error "Update: No draw-function" 
-                                :params params})
-              (comment (throw (RuntimeException. "Missing drawing function")))))
-          (do (raise {:error "Update: nothing updated"
-                      :params params})
-              (comment (throw (RuntimeException. "Missing updated")))))
+            (do (raise {:error "Update: nothing updated"
+                        :params params})
+                (comment (throw (RuntimeException. "Missing updated"))))))
         ;; WTF? This seems to be causing an exception because a 
         ;; PersistentArrayMap cannot be cast to java.lang.Throwable.
         ;; Isn't that the entire point to slingshot??
@@ -532,14 +554,21 @@ I'm trying to remember/figure out how all the pieces fit together."
       ;; Those probably do need to bubble up.
       (timbre/error e)
       (throw)))
-  ;; TODO: This almost definitely needs to return the updated state
+  ;; TODO: This almost definitely needs to return the updated state.
+  ;; I'm guessing that the error handling is ruining that.
   )
 
 (defn fps->millis
   "Silly utilitiy function. At x frames per second, each individual
 frame should be on the screen for y milliseconds.
 FIXME: This should go away completely. Penumbra already has
-utility functions that handle this better."
+utility functions that handle this better.
+
+I think what I'm looking for there is update callbacks:
+penumbra.app/periodic-update!
+which takes a frequency and callback-fn
+where frequency is the # of times/second that callback-fn
+should be called."
   [fps]
   (Math/round (float (* (/ 1 fps) 1000))))
 
@@ -617,4 +646,5 @@ utility functions that handle this better."
     (raise {:error :missing-fsm
             :state state
             :message "Missing FSM atom??"}))
-  (draw state))
+  (draw state)
+  (app/repaint!))
