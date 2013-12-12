@@ -24,7 +24,7 @@ Note that penumbra has a get-version that returns a float version of the same va
 
 ;;; Initialization
 
-(defn init-window
+(defn init-window-never-used
   "Initialize the static window where absolutely everything interesting will happen.
 This approach is more than a little dumb...should really be able to create full-screen
 windows that fill multiple monitors.
@@ -105,7 +105,12 @@ changes position. In practice, it almost never seems to get called.
 Actually, if my experiments with pen-sample are any indication, this
 never gets called."
   [[x y w h] state]
-  (comment(println "Reshape"))
+  ;; I have different goals from ztellman. We'll probably branch for real
+  ;; here. I need to get his permission.
+  ;; I want this to update every time the outer window changes state.
+  ;; And, periodically, when it changes position.
+  ;; This gets ugly
+  (comment)(println "Reshape")
   ;; FIXME: This fixed camera isn't appropriate at all.
   ;; It really needs to be set for whichever window is currently active.
   ;; But it's a start.
