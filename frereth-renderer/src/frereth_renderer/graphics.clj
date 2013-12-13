@@ -24,35 +24,6 @@ Note that penumbra has a get-version that returns a float version of the same va
 
 ;;; Initialization
 
-(defn init-window-never-used
-  "Initialize the static window where absolutely everything interesting will happen.
-This approach is more than a little dumb...should really be able to create full-screen
-windows that fill multiple monitors.
-Baby steps. I'm just trying to get that rope thrown across the gorge."
-  [{:keys [width height title] :as state}]
-  ;; There's absolutely nothing happening in here now.
-  (throw (RuntimeException. "Obsolete"))
-
-  (timbre/trace "Initializing window")
-  (timbre/spy state)
-  ;; Have to pass in the window in question.
-  ;; As annoying as it is, that's the way Protocols work.
-  ;; Changing something that basic in Penumbra means very
-  ;; breaking API changes. Probably doesn't matter, since I
-  ;; seriously doubt anyone else is using this. But not
-  ;; something that I have time for just now.
-  ;; FIXME: Do I seriously not have a window to hand to this?
-  (comment (app/vsync! nil true))
-
-  ;; These are left-overs from my initial stab at using raw JOGL.
-  ;; These don't seem to have penumbra equivalents (though that's probably just
-  ;; because I haven't dug deep enough yet).
-  ;; Whatever. I desperately need to do something along these lines.
-  (comment (Display/setDisplayMode (DisplayMode. width height))
-           (Display/setTitle title)
-           (Display/create))
-  state)
-
 (defn init-fsm
   "This doesn't particularly belong here. Except that the two seem
 strongly coupled inherently. Probably a symptom of the bigger problem
@@ -93,9 +64,6 @@ that there's just too much going on in here."
      (gl/frustum-view 60.0 (/ (double 4) 3) 1.0 100.0)
      (gl/load-identity)
 
-     (comment
-       (gl/frustum-view 60.0 (/ (double 4) 3) 1.0 100.0)
-       (gl/load-identity))
      params))
 
 (defn reshape
@@ -232,36 +200,39 @@ State: " state "\nMessaging: " (:messaging state)
            "\n****************************************************")
     (async/go
      (loop [msg (async/<! control-channel)]
-       (timbre/trace "Control Message:\n" msg)
+       ;; Check for channel closed
+       (when-not (nil? msg)
+         (timbre/trace "Control Message:\n" msg)
 
-       ;; FIXME: Need a "quit" message.
-       ;; This approach misses quite a few points, I think.
-       ;; This pieces of the FSM should be for very coarsely-
-       ;; grained transitions...
-       ;; then again, maybe my entire picture of the architecture
-       ;; is horribly flawed.
-       ;; TODO: Where's the actual communication happening?
-       ;; All I really care about right here, right now is
-       ;; establishing the heartbeat connection.
+         ;; FIXME: Need a "quit" message.
+         ;; This approach misses quite a few points, I think.
+         ;; This pieces of the FSM should be for very coarsely-
+         ;; grained transitions...
+         ;; then again, maybe my entire picture of the architecture
+         ;; is horribly flawed.
+         ;; TODO: Where's the actual communication happening?
+         ;; All I really care about right here, right now is
+         ;; establishing the heartbeat connection.
 
-       (throw (RuntimeException. "Start here"))
+         (timbre/trace "Communications Loop Received\n" 
+                       msg "\nfrom control channel")
+         (throw (RuntimeException. "Start here"))
 
-       (timbre/trace "Communications Loop Received\n" 
-              msg "\nfrom control channel")
-
-       ;; This really isn't good enough. This also has to handle responses
-       ;; to UI requests. I'm torn between using yet another channel
-       ;; (to where?) for this and using penumbra's message queue.
-       ;; Then again, maybe requiring client apps to work with the
-       ;; FSM makes sense...except that now we're really talking about
-       ;; a multiple secondary FSMs which I have absolutely no control
-       ;; over. That doesn't exactly seem like a good recipe for a
-       ;; "happy path"       
-       (let [next-state (fsm/transition! @fsm-atom msg true)]
-         ;; TODO: I don't think this is really even all that close
-         ;; to what I want.
-         (when-not (= next-state :__dead)
-           (recur (async/<! control-channel)))))
+         ;; This really isn't good enough. This also has to handle responses
+         ;; to UI requests. I'm torn between using yet another channel
+         ;; (to where?) for this and using penumbra's message queue.
+         ;; Then again, maybe requiring client apps to work with the
+         ;; FSM makes sense...except that now we're really talking about
+         ;; a multiple secondary FSMs which I have absolutely no control
+         ;; over. That doesn't exactly seem like a good recipe for a
+         ;; "happy path"       
+         (let [next-state (fsm/transition! @fsm-atom msg true)]
+           ;; TODO: I don't think this is really even all that close
+           ;; to what I want.
+           (when-not (= next-state :__dead)
+             (recur (async/<! control-channel))))))
+     ;; Doesn't hurt to close it twice, does it?
+     (async/close! control-channel)
 
      (timbre/info "Communications loop exiting")
      ;; TODO: Kill the window!!

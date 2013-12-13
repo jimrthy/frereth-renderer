@@ -90,9 +90,7 @@
     (doseq [k [:visualizer]]
       (verify-dead k)))
 
-  (let [messaging (comm/start (:messaging universe))
-        visualization-channel (async/chan)
-        ]
+  (let [messaging (comm/start (:messaging universe))]
 
     ;; I really want to kick off graphics immediately.
     ;; Unfortunately for that plan, it needs access to
@@ -107,30 +105,48 @@
     (swap! (:graphics universe) (fn [renderer]
                                   (graphics/start renderer
                                                   (:messaging universe))))
+    (timbre/info "Graphics started")
     ;; After the splash screen is created, start dealing with some meat.
 
     ;; Shift the splash screen FSM, so that I have a hint that
     ;; processing is continuing.
-        
-    (async/>!! visualization-channel :sterile-environment)
-    (assert visualization-channel)
-    (reset! (:visualizer universe) visualization-channel)
+
+    (comment
+      ;; I bet that this call's the one that isn't returning
+      (async/>!! visualization-channel :sterile-environment)
+      (timbre/info "Nope. I got here")
+      (assert visualization-channel)
+      (reset! (:visualizer universe) visualization-channel))
+    ;; Try doing it this way instead
+    (let [command (-> :messaging universe deref :command)]
+      (async/>!! command :sterile-environment)
+      (timbre/info "FSM should be showing sterile now"))
     
     ;; FIXME: Was this something clever I added recently, or something that
     ;; went away when I moved the networking pieces, and that move
     ;; didn't get propagated?
     (comment (quit-being-hermit universe))
+
     ;; This is wrong...at this point, really should start feeding
     ;; messages back and forth between the channel and the 
     ;; client-socket.
     ;; Actually, no...this needs to wait until we get a response
     ;; from the client.
-    
-    (comment (async/>!! visualization-channel :ready-to-play))
-    (async/go
-     (let [initial-client-response (async/<! @(:control-channel universe))]
-          (async/>! visualization-channel initial-client-response)))
-    
+    (let [control (:command messaging)
+          ui (:user-input messaging)]
+      (async/go
+       (let [timeout (async/timeout 250)]
+         (loop [[msg ch] (async/alts! [timeout control ui])]
+           (when msg
+             (timbre/trace "Forwarding message between client and UI -- " msg)
+             (when-let [dst (condp = ch
+                              control ui
+                              ui control)]
+               (async/>! dst msg))
+             (let [timeout (async/timeout 250)]
+               (recur (async/alts! [control ui timeout]))))
+           ;; TODO: Really ought to update *something* to show that this is going away.
+           (timbre/trace "client <-> renderer thread exiting")))))
     universe))
 
 (defn stop
