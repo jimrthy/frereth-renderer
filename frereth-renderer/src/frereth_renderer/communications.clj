@@ -5,7 +5,7 @@
              :refer [trace info debug warn error fatal spy with-log-level]])
   (:gen-class))
 
-(defn proxy
+(defn couple
   "Need to read from both ui and socket.
 When a message comes in on socket, forward it to command
 When a message comes in on ui, forward it to socket.
@@ -17,25 +17,46 @@ That simply does not work well in any sort of realistic scenario.
 
 This should be low-hanging fruit, but it's actually looking like some pretty hefty
 meat."
-  [from-ui to-ui from-client to-client]
-  ;; Ah, well. This is what I have time to tackle.
-  (comment (let msg ["Don't actually start here: there are other pieces that need to be fixed first.
-But this is pretty high up on the priority list"]
-                (throw (RuntimeException. msg))))
-  ;; Q: What makes sense?
-  ;; A: My first answer is a couple of threads that ignore each other on the core/async side.
-  ;; This is almost guaranteed to be a spectacular failure. I probably need at least 2 sockets
-  ;; for the to/from conversation with the Client.
-  ;; Sockets are not thread-safe. Absolutely cannot [ab]use them this way without crashes.
-  (let [controller (atom False)
-        command (async/thread
-                 (fn []
-                   (throw (RuntimeException. "Command reader (from client)"))
-                   (when @controller (recur))))
-        ui (async/thread
-            (fn []
-              (throw (RuntimeException. "UI Writer (to client)"))))]
-    [command ui controller]))
+  [ctx from-ui to-ui cmd]
+  (let [writer-thread (async/go
+                       ;; Next address is totally arbitrary.
+                       ;; And, honestly, the client should probably be what does
+                       ;; the binding. Have to start somewhere.
+                       (let [writer-sock (mq/connected-socket ctx :router
+                                                              "tcp://*:56567")]
+                         (mq/bind)
+                         (loop [to (async/timeout 60)] ; TODO: How long to wait?
+                           (let [[v ch] (async/alts!! [from-ui cmd to])]
+                             (condp = ch
+                               ;; TODO: Should probably look into processing
+                               ;; this message.
+                               from-ui (mq/send writer-sock v)
+                               cmd (throw (RuntimeException. "What does this mean?"))
+                               to
+                               ;; TODO: Check some flag to determine whether we're done.
+                               (recur (async/timeout 60)))))))
+        reader-thread (async/go
+                       (let [reader-sock (mq/connected-socket ctx :dealer
+                                                              "tcp://localhost:56568")]
+                         (loop []
+                           ;; FIXME: Take advantage of ribol!!
+                           (try
+                             (let [msg (mq/recv reader-sock (-> mq/const :control :dont-wait))]
+                               (try
+                                 (async/>! to-ui msg)
+                                 (catch Exception ex
+                                   (error ex)
+                                   (throw))))
+                             (catch Exception ex
+                               ;; This is actually pretty expected, anytime there isn't anything
+                               ;; to read. Honestly, should implement something like a peek.
+                               ;; TODO: I'm getting NPE's. What gives?
+                               (let [msg (format "Error %s trying to read without blocking"
+                                                 (str ex))]
+                                 (warn msg))))
+                           (recur)))) ; FIXME: Add a way to exit loop
+        ]
+    [writer-thread reader-thread]))
 
 (defn init
   []
@@ -48,22 +69,25 @@ TODO: formalize that using something like core.contract"
   ;; TODO: It actually might make some sort of sense to have multiple
   ;; threads involved here.
   (let [ctx (mq/context 1)
-        ;; TODO: what kind of socket makes sense here?
-        socket (mq/socket ctx :router)
-        ui (async/chan)
+        ;; Q: what kind of socket makes sense here?
+        ;; A: None, really. Since sockets aren't thread safe.
+        ;socket (mq/socket ctx :router)
+        ui (async/chan) ; user input -> client
+        uo (async/chan) ; client -> graphics
         command (async/chan)]
     ;; FIXME: Do I want into, merge, or something totally different?
     ;; FIXME: Whichever. Need an async channel that uses this socket
     ;; to communicate back and forth with the graphics namespace
     ;; to actually implement the UI.
-    (proxy ui command socket)
+    (couple ctx ui uo command)
 
     (reset! dead-world {:context ctx
-                        :socket socket
                         ;; Output to Client
                         :user-input ui
                         ;; Input from Client
                         :command command
+                        ;; Feedback to user
+                        :user-output uo
                         ;; For notifying -main that the graphics loop is terminating
                         :terminator (async/chan)})))
 
