@@ -6,13 +6,36 @@
   (:gen-class))
 
 (defn proxy
-  [ui cmd s]
-  ;; TODO:
-  ;; Need to read from both ui and socket.
-  ;; When a message comes in on socket, forward it to command
-  ;; When a message comes in on ui, forward it to socket.
-  ;; This is pretty vital.
-)
+  "Need to read from both ui and socket.
+When a message comes in on socket, forward it to command
+When a message comes in on ui, forward it to socket.
+
+This gets at least vaguely interesting because I want to send comms both
+ways. The obvious easy implementation is to have them be synchronous.
+
+That simply does not work well in any sort of realistic scenario.
+
+This should be low-hanging fruit, but it's actually looking like some pretty hefty
+meat."
+  [from-ui to-ui from-client to-client]
+  ;; Ah, well. This is what I have time to tackle.
+  (comment (let msg ["Don't actually start here: there are other pieces that need to be fixed first.
+But this is pretty high up on the priority list"]
+                (throw (RuntimeException. msg))))
+  ;; Q: What makes sense?
+  ;; A: My first answer is a couple of threads that ignore each other on the core/async side.
+  ;; This is almost guaranteed to be a spectacular failure. I probably need at least 2 sockets
+  ;; for the to/from conversation with the Client.
+  ;; Sockets are not thread-safe. Absolutely cannot [ab]use them this way without crashes.
+  (let [controller (atom False)
+        command (async/thread
+                 (fn []
+                   (throw (RuntimeException. "Command reader (from client)"))
+                   (when @controller (recur))))
+        ui (async/thread
+            (fn []
+              (throw (RuntimeException. "UI Writer (to client)"))))]
+    [command ui controller]))
 
 (defn init
   []

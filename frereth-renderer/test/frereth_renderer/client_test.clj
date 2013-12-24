@@ -14,11 +14,12 @@
        ;; Honestly, these messages should be going to the 
        (let [initial (sys/init)
              alive (sys/start initial)]
-         ;; It wasn't, but it is now.
-         (comment (println "I don't think sys/start is ever actually returning"))
+         ;; TODO: These commands should be going over the external
+         ;; socket instead.
+         ;; Should probably make that a duplicate test, just for
+         ;; the sake of completeness.
          (let [commands (-> alive :messaging deref :command)
                fsm-agent (:state alive)]
-           (comment (println "Kicking off the test"))
            (fact "FSM starts out disconnected"
                  (println "Initial FSM:")
                  (pprint fsm-agent)
