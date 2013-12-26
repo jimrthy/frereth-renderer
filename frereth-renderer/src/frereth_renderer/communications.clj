@@ -1,8 +1,8 @@
 (ns frereth-renderer.communications
   (:require [cljeromq.core :as mq]
             [clojure.core.async :as async]
-            [taoensso.timbre :as timbre
-             :refer [trace info debug warn error fatal spy with-log-level]])
+            [taoensso.timbre :as timbre])
+  (:use ribol.core)
   (:gen-class))
 
 (defn couple
@@ -36,26 +36,36 @@ meat."
                                ;; TODO: Check some flag to determine whether we're done.
                                (recur (async/timeout 60)))))))
         reader-thread (async/go
-                       (let [reader-sock (mq/connected-socket ctx :dealer
-                                                              "tcp://localhost:56568")]
-                         (loop []
-                           ;; FIXME: Take advantage of ribol!!
-                           (try
-                             (let [msg (mq/recv reader-sock (-> mq/const :control :dont-wait))]
-                               (try
-                                 (async/>! to-ui msg)
-                                 (catch Exception ex
-                                   (error ex)
-                                   (throw))))
-                             (catch Exception ex
-                               ;; This is actually pretty expected, anytime there isn't anything
-                               ;; to read. Honestly, should implement something like a peek.
-                               ;; TODO: I'm getting NPE's. What gives?
-                               (let [msg (format "Error %s trying to read without blocking"
-                                                 (str ex))]
-                                 (warn msg))))
-                           (recur)))) ; FIXME: Add a way to exit loop
-        ]
+                       (manage
+                        (let [reader-sock (mq/connected-socket ctx :dealer
+                                                               "tcp://localhost:56568")]
+                          (timbre/info "Entering Read Thread on socket " reader-sock)
+                          (loop []
+                            (raise-on [NullPointerException :zmq-npe]
+                                      [Throwable :unknown]
+                                      (let [msg (mq/recv reader-sock (-> mq/const :control :dont-wait))]
+                                        (when msg
+                                          (raise-on [Exception :async-fail]
+                                                    (async/>! to-ui msg)
+                                                    (on :async-fail [ex]
+                                                        (timbre/error ex)
+                                                        (escalate))))))
+                            (on :zmq-npe [ex]
+                                ;; Debugging
+                                (escalate ex)
+                                (continue nil))
+                            (on _ [t]
+                                ;; I *do* expect an exception when I try to read a disconnected
+                                ;; socket using the DONT_WAIT flag. I'm just not positive
+                                ;; which exception that is yet.
+                                (let [msg (format "Unknown Error %s trying to read without blocking"
+                                                  (str ex))]
+                                  (timbre/warn msg))
+                                (escalate))
+
+                            (recur))) ; FIXME: Add a way to exit loop
+                        (on :zmq-npe []
+                            (choose :use-nil))))]
     [writer-thread reader-thread]))
 
 (defn init
@@ -95,17 +105,17 @@ TODO: formalize that using something like core.contract"
   [live-world]
   (if-let [local-async (:user-input live-world)]
     (async/close! local-async)
-    (warn "No local input channel...what happened?"))
+    (timbre/warn "No local input channel...what happened?"))
   (if-let [command-from-client (:command live-world)]
     (async/close! command-from-client)
-    (warn "Missing command channel from client"))
+    (timbre/warn "Missing command channel from client"))
   (let [ctx (:context live-world)
         socket (:socket live-world)]
     ;; FIXME: Realistically, both these situations should throw an exception
     (if socket
       (mq/close! socket)
-      (error "Missing communications socket"))
+      (timbre/error "Missing communications socket"))
     (if ctx
       (mq/terminate! ctx)
-      (error "Missing communications context")))
+      (timbre/error "Missing communications context")))
   live-world)
