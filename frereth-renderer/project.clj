@@ -34,6 +34,7 @@ java.library.path and that's good enough."
   ;; to properly configure my local maven repo.
   :dependencies [[byte-transforms "0.1.1"]
                  [com.taoensso/timbre "2.7.1"]
+                 [im.chit/ribol "0.3.3"]
                  [jimrthy/cljeromq "0.1.0-SNAPSHOT"]
                  [jimrthy/penumbra "0.6.6-SNAPSHOT"]
                  [kephale/cantor "0.4.1"] ; Deprecated math optimization library
@@ -41,7 +42,7 @@ java.library.path and that's good enough."
                  [kephale/lwjgl-natives "2.9.0"]
                  [kephale/lwjgl-util "2.9.0"]
                  [org.clojure/clojure "1.5.1"]
-                 [org.clojure/core.async "0.1.222.0-83d0c2-alpha"]
+                 [org.clojure/core.async "0.1.267.0-0d7780-alpha"]
                  [org.clojure/core.contracts "0.0.5"]
                  [org.clojure/math.combinatorics "0.0.7"]
                  ;; 0mq is at 4.0.3, while jeromq is only at 3.2.2.
@@ -54,7 +55,6 @@ java.library.path and that's good enough."
                  [org.zeromq/cljzmq "0.1.1" :exclusions [org.zeromq/jzmq]]
                  ;; TODO: An nrepl client?
 
-                 [im.chit/ribol "0.3.3"]
 
                  ;; FIXME: Is this more appropriate here or in frereth-client?
                  ;; Is it worth an external dependency at all? Especially since

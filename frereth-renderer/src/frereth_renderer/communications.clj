@@ -1,27 +1,30 @@
 (ns frereth-renderer.communications
   (:require [cljeromq.core :as mq]
             [clojure.core.async :as async]
+            [ribol.core :refer :all]
             [taoensso.timbre :as timbre])
-  (:use ribol.core)
   (:gen-class))
+
+(defn client->ui-loop [reader-sock to-ui]
+  ;; TODO: I really want to manage these exceptions right here, if at all possible.
+  (raise-on [NullPointerException :zmq-npe]
+            [Throwable :unknown]
+            (loop []
+              (let [msg (mq/recv reader-sock (-> mq/const :control :dont-wait))]
+                (when msg
+                  (raise-on [Exception :async-fail]
+                            (async/>!! to-ui msg))))
+              (recur))))  ; FIXME: Add a way to exit loop
 
 (defn client->ui [ctx to-ui]
   (manage
    (let [reader-sock (mq/connected-socket ctx :dealer
                                           "tcp://localhost:56568")]
      (timbre/info "Entering Read Thread on socket " reader-sock)
-     (loop []
-       (raise-on [NullPointerException :zmq-npe]
-                 [Throwable :unknown]
-                 (let [msg (mq/recv reader-sock (-> mq/const :control :dont-wait))]
-                   (when msg
-                     (raise-on [Exception :async-fail]
-                               (async/>! to-ui msg)))))
-       (recur))) ; FIXME: Add a way to exit loop
+     (client->ui-loop reader-sock to-ui))
    (on :zmq-npe [ex]
-       ;; Debugging
-       (escalate ex)
-       (choose :use-nil))))
+       ;; Debugging...what makes more sense instead?
+       (escalate ex))))
 
 (defn ui->client [ctx from-ui cmd]
   ;; Next address is totally arbitrary.
@@ -29,7 +32,6 @@
   ;; the binding. Have to start somewhere.
   (let [writer-sock (mq/connected-socket ctx :router
                                          "tcp://*:56567")]
-    (mq/bind)
     (loop [to (async/timeout 60)] ; TODO: How long to wait?
       (let [[v ch] (async/alts!! [from-ui cmd to])]
         (condp = ch
@@ -54,8 +56,8 @@ That simply does not work well in any sort of realistic scenario.
 This should be low-hanging fruit, but it's actually looking like some pretty hefty
 meat."
   [ctx from-ui to-ui cmd]
-  (let [writer-thread (async/go (ui->client ctx))
-        reader-thread (async/go (client->ui ctx from-ui cmd))]
+  (let [writer-thread (async/thread (ui->client ctx from-ui cmd))
+        reader-thread (async/thread (client->ui ctx to-ui))]
     [writer-thread reader-thread]))
 
 (defn init

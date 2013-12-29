@@ -6,6 +6,7 @@
             [clojure.repl :refer :all]
             [clojure.test :as test]
             [clojure.tools.namespace.repl :refer (refresh refresh-all)]
+            [frereth-renderer.communications :as comm]
             [frereth-renderer.graphics :as graphics]
             [frereth-renderer.system :as system]))
 
