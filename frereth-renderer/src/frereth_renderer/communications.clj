@@ -5,6 +5,42 @@
   (:use ribol.core)
   (:gen-class))
 
+(defn client->ui [ctx to-ui]
+  (manage
+   (let [reader-sock (mq/connected-socket ctx :dealer
+                                          "tcp://localhost:56568")]
+     (timbre/info "Entering Read Thread on socket " reader-sock)
+     (loop []
+       (raise-on [NullPointerException :zmq-npe]
+                 [Throwable :unknown]
+                 (let [msg (mq/recv reader-sock (-> mq/const :control :dont-wait))]
+                   (when msg
+                     (raise-on [Exception :async-fail]
+                               (async/>! to-ui msg)))))
+       (recur))) ; FIXME: Add a way to exit loop
+   (on :zmq-npe [ex]
+       ;; Debugging
+       (escalate ex)
+       (choose :use-nil))))
+
+(defn ui->client [ctx from-ui cmd]
+  ;; Next address is totally arbitrary.
+  ;; And, honestly, the client should probably be what does
+  ;; the binding. Have to start somewhere.
+  (let [writer-sock (mq/connected-socket ctx :router
+                                         "tcp://*:56567")]
+    (mq/bind)
+    (loop [to (async/timeout 60)] ; TODO: How long to wait?
+      (let [[v ch] (async/alts!! [from-ui cmd to])]
+        (condp = ch
+          ;; TODO: Should probably look into processing
+          ;; this message.
+          from-ui (mq/send writer-sock v)
+          cmd (throw (RuntimeException. "What does this mean?"))
+          to
+          ;; TODO: Check some flag to determine whether we're done.
+          (recur (async/timeout 60)))))))
+
 (defn couple
   "Need to read from both ui and socket.
 When a message comes in on socket, forward it to command
@@ -18,54 +54,8 @@ That simply does not work well in any sort of realistic scenario.
 This should be low-hanging fruit, but it's actually looking like some pretty hefty
 meat."
   [ctx from-ui to-ui cmd]
-  (let [writer-thread (async/go
-                       ;; Next address is totally arbitrary.
-                       ;; And, honestly, the client should probably be what does
-                       ;; the binding. Have to start somewhere.
-                       (let [writer-sock (mq/connected-socket ctx :router
-                                                              "tcp://*:56567")]
-                         (mq/bind)
-                         (loop [to (async/timeout 60)] ; TODO: How long to wait?
-                           (let [[v ch] (async/alts!! [from-ui cmd to])]
-                             (condp = ch
-                               ;; TODO: Should probably look into processing
-                               ;; this message.
-                               from-ui (mq/send writer-sock v)
-                               cmd (throw (RuntimeException. "What does this mean?"))
-                               to
-                               ;; TODO: Check some flag to determine whether we're done.
-                               (recur (async/timeout 60)))))))
-        reader-thread (async/go
-                       (manage
-                        (let [reader-sock (mq/connected-socket ctx :dealer
-                                                               "tcp://localhost:56568")]
-                          (timbre/info "Entering Read Thread on socket " reader-sock)
-                          (loop []
-                            (raise-on [NullPointerException :zmq-npe]
-                                      [Throwable :unknown]
-                                      (let [msg (mq/recv reader-sock (-> mq/const :control :dont-wait))]
-                                        (when msg
-                                          (raise-on [Exception :async-fail]
-                                                    (async/>! to-ui msg)
-                                                    (on :async-fail [ex]
-                                                        (timbre/error ex)
-                                                        (escalate))))))
-                            (on :zmq-npe [ex]
-                                ;; Debugging
-                                (escalate ex)
-                                (continue nil))
-                            (on _ [t]
-                                ;; I *do* expect an exception when I try to read a disconnected
-                                ;; socket using the DONT_WAIT flag. I'm just not positive
-                                ;; which exception that is yet.
-                                (let [msg (format "Unknown Error %s trying to read without blocking"
-                                                  (str ex))]
-                                  (timbre/warn msg))
-                                (escalate))
-
-                            (recur))) ; FIXME: Add a way to exit loop
-                        (on :zmq-npe []
-                            (choose :use-nil))))]
+  (let [writer-thread (async/go (ui->client ctx))
+        reader-thread (async/go (client->ui ctx from-ui cmd))]
     [writer-thread reader-thread]))
 
 (defn init
