@@ -2,8 +2,16 @@
   (:require [cljeromq.core :as mq]
             [clojure.core.async :as async]
             [ribol.core :refer :all]
-            [taoensso.timbre :as timbre])
+            [taoensso.timbre :as log])
   (:gen-class))
+
+(defn client->ui-hand-shake
+  "Establish that the client is waiting to send commands/status to us"
+  [sock]
+  ;; Don't want to do anything fancy yet, but it's a REP socket.
+  ;; Have to notify it that I'm here.
+  (mq/send sock :PING)
+  )
 
 (defn client->ui-loop [reader-sock to-ui]
   ;; TODO: I really want to manage these exceptions right here, if at all possible.
@@ -13,25 +21,31 @@
               (let [msg (mq/recv reader-sock (-> mq/const :control :dont-wait))]
                 (when msg
                   (raise-on [Exception :async-fail]
+                            ;; Here's at least one annoying bit about the
+                            ;; way I've refactored this code into smaller
+                            ;; pieces: I'm using >!! inside a go block
                             (async/>!! to-ui msg))))
               (recur))))  ; FIXME: Add a way to exit loop
 
 (defn client->ui [ctx to-ui]
+  ;; Subscribe to server events from the client
   (manage
-   (let [reader-sock (mq/connected-socket ctx :dealer
-                                          "tcp://localhost:56568")]
-     (timbre/info "Entering Read Thread on socket " reader-sock)
+   (let [reader-sock (mq/connected-socket ctx :sub
+                                          ;; Arbitrary magic socket number that I
+                                          ;; picked when I was setting up the client
+                                          "tcp://localhost:7840")]
+     (log/trace "Shaking hands with client")
+     (client->ui-hand-shake reader-sock)
+     (log/info "Entering Read Thread on socket " reader-sock)
      (client->ui-loop reader-sock to-ui))
    (on :zmq-npe [ex]
        ;; Debugging...what makes more sense instead?
        (escalate ex))))
 
 (defn ui->client [ctx from-ui cmd]
-  ;; Next address is totally arbitrary.
-  ;; And, honestly, the client should probably be what does
-  ;; the binding. Have to start somewhere.
-  (let [writer-sock (mq/connected-socket ctx :router
-                                         "tcp://*:56567")]
+  ;; Push user events to the client to forward along to the server(s)
+  (let [writer-sock (mq/connected-socket ctx :push
+                                         "tcp://localhost:7842")]
     (loop [to (async/timeout 60)] ; TODO: How long to wait?
       (let [[v ch] (async/alts!! [from-ui cmd to])]
         (condp = ch
@@ -97,17 +111,17 @@ TODO: formalize that using something like core.contract"
   [live-world]
   (if-let [local-async (:user-input live-world)]
     (async/close! local-async)
-    (timbre/warn "No local input channel...what happened?"))
+    (log/warn "No local input channel...what happened?"))
   (if-let [command-from-client (:command live-world)]
     (async/close! command-from-client)
-    (timbre/warn "Missing command channel from client"))
+    (log/warn "Missing command channel from client"))
   (let [ctx (:context live-world)
         socket (:socket live-world)]
     ;; FIXME: Realistically, both these situations should throw an exception
     (if socket
       (mq/close! socket)
-      (timbre/error "Missing communications socket"))
+      (log/error "Missing communications socket"))
     (if ctx
       (mq/terminate! ctx)
-      (timbre/error "Missing communications context")))
+      (log/error "Missing communications context")))
   live-world)

@@ -4,15 +4,14 @@
             [frereth-renderer.fsm :as fsm]
             [frereth-renderer.config :as config]
             [frereth-renderer.graphics :as graphics]
-            [taoensso.timbre :as timbre
-             :refer (trace debug info warn error fatal spy with-log-level)])
+            [taoensso.timbre :as log])
   (:gen-class))
 
 (defn init
   "Generate a dead system"
   []
   (set! *warn-on-reflection* true)
-  (info "INIT")
+  (log/info "INIT")
 
   {;; Actual socket layer for communicating with the client.
    :messaging (comm/init)
@@ -63,9 +62,9 @@
   "Perform the side-effects to bring a dead system to life"
   [universe]
   ;; FIXME: Debug only
-  (timbre/set-level! :trace)
+  (log/set-level! :trace)
 
-  (trace "START")
+  (log/trace "START")
 
   ;; Pulled the next block out of the let just below.
   ;; Originally, I thought I wanted to call the graphics
@@ -85,7 +84,7 @@
   ;; It isn't like it'll take long.
   ;; Then again: it'd be better to display any errors that happen there.
   (letfn [(verify-dead [key]
-            (timbre/trace "Verifying dead: " key)
+            (log/trace "Verifying dead: " key)
             (assert (nil? @(key universe))))]
     (doseq [k [:visualizer]]
       (verify-dead k)))
@@ -105,7 +104,7 @@
     (swap! (:graphics universe) (fn [renderer]
                                   (graphics/start renderer
                                                   (:messaging universe))))
-    (timbre/info "Graphics started")
+    (log/info "Graphics started")
     ;; After the splash screen is created, start dealing with some meat.
 
     ;; Shift the splash screen FSM, so that I have a hint that
@@ -114,13 +113,13 @@
     (comment
       ;; I bet that this call's the one that isn't returning
       (async/>!! visualization-channel :sterile-environment)
-      (timbre/info "Nope. I got here")
+      (log/info "Nope. I got here")
       (assert visualization-channel)
       (reset! (:visualizer universe) visualization-channel))
     ;; Try doing it this way instead
     (let [command (-> :messaging universe deref :command)]
       (async/>!! command :sterile-environment)
-      (timbre/info "FSM should be showing sterile now"))
+      (log/info "FSM should be showing sterile now"))
     
     ;; FIXME: Was this something clever I added recently, or something that
     ;; went away when I moved the networking pieces, and that move
@@ -138,7 +137,7 @@
        (let [timeout (async/timeout 250)]
          (loop [[msg ch] (async/alts! [timeout control ui])]
            (when msg
-             (timbre/trace "Forwarding message between client and UI -- " msg)
+             (log/trace "Forwarding message between client and UI -- " msg)
              (when-let [dst (condp = ch
                               control ui
                               ui control)]
@@ -146,14 +145,14 @@
              (let [timeout (async/timeout 250)]
                (recur (async/alts! [control ui timeout]))))
            ;; TODO: Really ought to update *something* to show that this is going away.
-           (timbre/trace "client <-> renderer thread exiting")))))
+           (log/trace "client <-> renderer thread exiting")))))
     universe))
 
 (defn stop
   "Perform the side-effects to sterilize a universe"
   [universe]
 
-  (trace "Telling the visualizer to exit")
+  (log/trace "Telling the visualizer to exit")
 
   (comm/stop! (:messaging universe))
 
@@ -171,10 +170,10 @@
   ;; Realistically: want to take some time to allow that socket to wrap
   ;; everything up.
   (comment (mq/terminate @(:messaging universe)))
-  (println "Killing the agents")
+  (log/info "Killing the agents")
   (shutdown-agents)
 
-  (println "Terminating the UI")
+  (log/info "Terminating the UI")
   ;; Q: Would it be better to send a message over the controller channel?
   ;; Especially since I seem to be doing that already?
   ;; A: That seems like total overkill. There's no reason at all for this to
@@ -192,7 +191,7 @@
   ;; FIXME: Destroy the previous app window. Or recycle it.
   ;; (Destroying better, from a "start over with a clean slate"
   ;; perspective)
-  (info "Resetting to a dead universe so the old can be garbage-collected")
+  (log/info "Resetting to a dead universe so the old can be garbage-collected")
   ;; FIXME: Calling init here seems like a horrid idea...except that it's
   ;; probably a decent choice.
   (init))

@@ -35,12 +35,12 @@ java.library.path and that's good enough."
   :dependencies [[byte-transforms "0.1.1"]
                  [com.taoensso/timbre "2.7.1"]
                  [im.chit/ribol "0.3.3"]
-                 [jimrthy/cljeromq "0.1.0-SNAPSHOT"]
                  [jimrthy/penumbra "0.6.6-SNAPSHOT"]
                  [kephale/cantor "0.4.1"] ; Deprecated math optimization library
                  [kephale/lwjgl "2.9.0"]
                  [kephale/lwjgl-natives "2.9.0"]
                  [kephale/lwjgl-util "2.9.0"]
+                 [org.clojars.jimrthy/cljeromq "0.1.0-SNAPSHOT"]
                  [org.clojure/clojure "1.5.1"]
                  [org.clojure/core.async "0.1.267.0-0d7780-alpha"]
                  [org.clojure/core.contracts "0.0.5"]
@@ -50,6 +50,7 @@ java.library.path and that's good enough."
                  ;; though those aren't so much an issue for this particular
                  ;; layer.
                  ;; TODO: Switch back to using the native java bindings.
+                 ;; Not that those currently support security either.
                  [org.jeromq/jeromq "0.3.0-SNAPSHOT"]
                  ;; TODO: 0.1.4 has been released. Get this updated to match!
                  [org.zeromq/cljzmq "0.1.1" :exclusions [org.zeromq/jzmq]]
@@ -73,7 +74,6 @@ java.library.path and that's good enough."
                    (System/getProperty "java.library.path"))]
   :main frereth-renderer.core
 
-  ;;:plugins [[lein-git-deps "0.0.1-SNAPSHOT"]]
   :profiles {:uberjar {:aot :all}
              :dev {:source-paths ["dev"]
                    :dependencies  [[clj-ns-browser "1.3.1"]
