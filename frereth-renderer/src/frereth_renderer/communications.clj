@@ -46,6 +46,9 @@
   ;; Push user events to the client to forward along to the server(s)
   (let [writer-sock (mq/connected-socket ctx :push
                                          "tcp://localhost:7842")]
+    (log/debug "Pushing HELO to client")
+    (mq/send writer-sock :helo)
+    (log/debug "Client accepted")
     (loop [to (async/timeout 60)] ; TODO: How long to wait?
       (let [[v ch] (async/alts!! [from-ui cmd to])]
         (condp = ch
@@ -90,12 +93,12 @@ TODO: formalize that using something like core.contract"
         ;socket (mq/socket ctx :router)
         ui (async/chan) ; user input -> client
         uo (async/chan) ; client -> graphics
-        command (async/chan)]
-    ;; FIXME: Do I want into, merge, or something totally different?
-    ;; FIXME: Whichever. Need an async channel that uses this socket
-    ;; to communicate back and forth with the graphics namespace
-    ;; to actually implement the UI.
-    (couple ctx ui uo command)
+        command (async/chan)
+        ;; FIXME: Do I want into, merge, or something totally different?
+        ;; FIXME: Whichever. Need an async channel that uses this socket
+        ;; to communicate back and forth with the graphics namespace
+        ;; to actually implement the UI.
+        coupling (couple ctx ui uo command)]
 
     (reset! dead-world {:context ctx
                         ;; Output to Client
@@ -105,7 +108,9 @@ TODO: formalize that using something like core.contract"
                         ;; Feedback to user
                         :user-output uo
                         ;; For notifying -main that the graphics loop is terminating
-                        :terminator (async/chan)})))
+                        :terminator (async/chan)
+                        ;; Where everything interesting is happening
+                        :coupling coupling})))
 
 (defn stop!
   [live-world]
