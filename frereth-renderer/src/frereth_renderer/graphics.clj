@@ -264,6 +264,18 @@ State: " state "\nMessaging: " (:messaging state)
     {:renderer nil
      :fsm system-state}))
 
+(defn restore-last-session
+  "This is horribly over-simplified. But it's a start."
+  []
+   {:width 1024
+    :height 768
+    :title "Frereth"
+    :messaging messaging
+    :fsm (:fsm graphics)
+    ;; This next is pretty much totally invalid long-term.
+    ;; But it's a decent baby step.
+    :update-function update-initial-splash})
+
 ;; Don't want to declare this here. Really shouldn't be calling it directly
 ;; at all. Honestly, need something like a var that I can override with
 ;; the current view.
@@ -284,14 +296,7 @@ State: " state "\nMessaging: " (:messaging state)
         ;; Q: Why? On both counts? (i.e. Why would I need a custom classloader
         ;; for remembering last position, much less needing it eventually?)
         ;; I just want to put it off as long as possible.
-        visual-details {:width 1024
-                        :height 768
-                        :title "Frereth"
-                        :messaging messaging
-                        :fsm (:fsm graphics)
-                        ;; This next is pretty much totally invalid long-term.
-                        ;; But it's a decent baby step.
-                        :update-function update-initial-splash}]
+        visual-details (restore-last-session)]
     (begin visual-details))
 
   (comment) (timbre/trace "**********************************************************
