@@ -62,6 +62,8 @@
   "Perform the side-effects to bring a dead system to life"
   [universe]
   ;; FIXME: Debug only
+  ;; FIXME: http://dev.clojure.org/jira/browse/CLJ-865 will let me
+  ;; set the configuration to also show where a log came from.
   (log/set-level! :trace)
 
   (log/trace "START")
@@ -119,7 +121,7 @@
     ;; Try doing it this way instead
     (let [command (-> :messaging universe deref :command)]
       (async/>!! command :sterile-environment)
-      (log/info "FSM should be showing sterile now"))
+      (log/trace "FSM should be showing sterile now"))
     
     ;; FIXME: Was this something clever I added recently, or something that
     ;; went away when I moved the networking pieces, and that move

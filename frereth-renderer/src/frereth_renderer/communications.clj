@@ -48,14 +48,17 @@
                                          "tcp://localhost:7842")]
     (log/debug "Pushing HELO to client")
     (mq/send writer-sock :helo)
-    (log/debug "Client accepted")
+    ;; This assumes send was blocking. Which it should have been,
+    ;; but I've seen examples recently where it was not.
+    (log/debug "Client accepted the HELO")
     (loop [to (async/timeout 60)] ; TODO: How long to wait?
       (let [[v ch] (async/alts!! [from-ui cmd to])]
         (condp = ch
           ;; TODO: Should probably look into processing
           ;; this message.
           from-ui (mq/send writer-sock v)
-          cmd (throw (RuntimeException. "What does this mean?"))
+          cmd (throw (RuntimeException. "Received message over command channel.
+What does this mean?"))
           to
           ;; TODO: Check some flag to determine whether we're done.
           (recur (async/timeout 60)))))))

@@ -2,7 +2,7 @@
   (:require [clojure.core.async :as async]
             [clojure.core.contracts :as contract]
             ;;[slingshot.slingshot :refer [throw+ try+]]
-            [taoensso.timbre :as timbre])
+            [taoensso.timbre :as log])
   (:use ribol.core)
   (:gen-class))
 
@@ -50,7 +50,7 @@ That part is extremely easy to abuse and should almost definitely
 go away.
 OTOH...it can be extremely convenient"
   [fsm transition-key & error-if-unknown]
-  (timbre/trace "FSM Transition!\nSending " transition-key " to " fsm)
+  (log/trace "FSM Transition!\nSending " transition-key " to " fsm)
   (manage
     (send fsm (fn [prev]
                 ;; Wow. This just seems incredibly ugly.
@@ -62,14 +62,14 @@ OTOH...it can be extremely convenient"
                         (when side-effect
                           (side-effect))
                         ;; Success!
-                        (comment (timbre/trace "Switching from " (:state prev) " to " updated))
+                        (comment (log/trace "Switching from " (:state prev) " to " updated))
                         (into prev {:state updated}))
                       (if error-if-unknown
                         (do
-                          (comment (timbre/trace "Set to error out on illegal transition"))
+                          (comment (log/trace "Set to error out on illegal transition"))
                           ;; Note that this should put the agent into an error state.
                           (raise (into prev {:failure :transition :which transition-key})))
-                        (comment (timbre/trace "Ignoring illegal transition"))))
+                        (comment (log/trace "Ignoring illegal transition"))))
                     ;; FSM doesn't know anything about its current state.
                     ;; Not really any way around this either
                     (raise (into prev {:failure :state :which state})))
@@ -77,7 +77,7 @@ OTOH...it can be extremely convenient"
                   ;; This is a fairly serious error under any circumstances.
                   (raise (into prev {:failure :missing :which :state})))))
     (catch ClassCastException ex
-      (timbre/error "Broken FSM transition: trying to send '"
+      (log/error "Broken FSM transition: trying to send '"
              (str transition-key) "' to\n'" (str fsm) "'")
       ;; This definitely falls in the category of "fail early"
       (throw))))
@@ -87,7 +87,7 @@ OTOH...it can be extremely convenient"
     (fn [fsm initial-state]
       ;; Special case. Can't actually use transition! because it doesn't
       ;; know how to bring a dead FSM to life.
-      (timbre/info "Starting FSM, state: " initial-state)
+      (log/info "Starting FSM, state: " initial-state)
       (send fsm (fn [current]
                   (into current {:state initial-state}))))
 
@@ -104,18 +104,20 @@ OTOH...it can be extremely convenient"
   ;; to swap implementation in and out.
   ;; Just because clojure doesn't do things like data hiding
   ;; doesn't mean I should avoid it when it makes sense.
-  (if-let [ex (agent-error fsm-agent)]
-    (do
-      (comment) (timbre/trace "Agent is in an error state")
-      (.data ex))
-    (if-let [m @fsm-agent]
+  (if fsm-agent
+    (if-let [ex (agent-error fsm-agent)]
       (do
-        (comment (timbre/trace "Agent state is just fine, thank you"))
-        (:state m))
-      (do
-        (timbre/error "NULL FSM agent. WTH?")
-        (raise {:error :broken-fsm
-                :agent fsm-agent})))))
+        (log/trace "Agent is in an error state")
+        (pprint (.data ex)))
+      (if-let [m @fsm-agent]
+        (do
+          (comment (log/trace "Agent state is just fine, thank you"))
+          (:state m))
+        (do
+          (log/error "NULL FSM agent. WTH?")
+          (raise {:error :broken-fsm
+                  :agent fsm-agent}))))
+    (raise {:error :missing-fsm})))
 
 (defn clear-error [fsm]
   (let [state @fsm]
