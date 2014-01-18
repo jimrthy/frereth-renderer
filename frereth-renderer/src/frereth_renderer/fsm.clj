@@ -1,7 +1,7 @@
 (ns frereth-renderer.fsm
   (:require [clojure.core.async :as async]
             [clojure.core.contracts :as contract]
-            ;;[slingshot.slingshot :refer [throw+ try+]]
+            [clojure.pprint :refer (pprint)]
             [taoensso.timbre :as log])
   (:use ribol.core)
   (:gen-class))
