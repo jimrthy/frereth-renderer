@@ -10,14 +10,22 @@
 
 (defn client->ui-hand-shake
   "This is really the response part of the handshake that was initiated
-sometime during ui->client."
+sometime during ui->client.
+
+It feels backwards, but it really does make basic sense:
+Client SENDs a \"whatcha got?\" message when it's ready for input, then
+sits around waiting patiently for a response.
+
+Of course, that approach is dumb on the client side: it really needs to deal
+with timeouts, exit messages, etc. But I need something basic working before
+I try to handle edge cases."
   [sock]
   (let [msg (mq/recv sock)]
     ;; TODO: Really should verify that messages contents. For details like
     ;; protocol, version, etc.
     (mq/send sock :PONG)))
 
-(defn client->ui-loop [reader-sock ->ui cmd]
+(defn client->ui-loop [reader-sock ->ui cmd r->w w->r]
   ;; TODO: I really want to manage these exceptions right here, if at all possible.
   (raise-on [NullPointerException :zmq-npe]
             [Throwable :unknown]
@@ -30,18 +38,27 @@ sometime during ui->client."
               (let [msg (mq/recv reader-sock (-> mqk/const :control :dont-wait))]
                 (when msg
                   (raise-on [Exception :async-fail]
-                            ;; Here's at least one annoying bit about the
-                            ;; way I've refactored this code into smaller
-                            ;; pieces: I'm using >!! inside a go block
+                            ;; This is really happening inside a go block. Who cares?
                             (async/>!! ->ui msg))))
-              (recur))))  ; FIXME: Add a way to exit loop
+              (let [to (core/timeout 1)]
+                (let [[v ch] (alts!! [cmd w->r to])]
+                  (condp = ch
+                    to (recur)
+                    w->r (do
+                           ;; This is really just around because I keep running into issues where I need these
+                           ;; channels to communicate. There isn't anything specific here yet, so this qualifies
+                           ;; as YAGNI...but not doing it would count as premature optimization.
+                           (throw (RuntimeException. "What does a writer->reader direct message actually mean?")))
+                    (do
+                      ;; Received a message from cmd
+                      (log/info "cmd message: Assume this means exit gracefully"))))))))
 
 (defn client->ui
   "Invoke thread that receives user input messages and forwards them to the client.
 ctx is the 0mq messaging context
 ->ui is the core.async channel for submitting events
 cmd is the command/control channel that lets us know when it's time to quit."
-  [ctx ->ui cmd]
+  [ctx ->ui cmd r->w w->r]
   ;; Subscribe to server events from the client
   (manage
    ;; TODO: Allow binding to external addresses. Though we should really
@@ -67,15 +84,24 @@ cmd is the command/control channel that lets us know when it's time to quit."
 ui-> is the async socket to receive those messages.
 cmd is the async command channel used to pass control messages into this thread.
 ->client is the 0mq socket to the client."
-  [ui-> cmd ->client]
+  [ui-> cmd ->client r->w w->r]
+  (log/debug "Entering ui->client message loog")
   (loop [to (async/timeout 60)] ; TODO: How long to wait?
-    (let [[v ch] (async/alts!! [ui-> cmd to])]
+    (let [[v ch] (async/alts!! [ui-> cmd r->w to])]
       (condp = ch
         ;; TODO: Should probably look into processing
         ;; this message.
-        ui-> (do (mq/send ->client v)
-                    (let [ack (mq/recv ->client)]
-                      (log/debug ack)))
+        ui-> (do
+               (log/debug "UI message for client:\n" v)
+               (mq/send ->client v)
+               (let [ack (mq/recv ->client)]
+                 (log/debug ack)))
+        r->w (do
+               ;; This channel was put in place originally so the 'reader' can tell this
+               ;; thread which port it's listening on, so this 'writer' thread can inform
+               ;; the client.
+               (log/error "Reader communicating with writer:\n" v)
+               (throw (RuntimeException. "I don't have a clue how to deal with this")))
         cmd (do
               (log/debug v)
               ;; The most obvious possibility here is the command to exit.
@@ -90,7 +116,7 @@ Need to handle this.")))
         ))
     (recur (async/timeout 60))))
 
-(defn ui->client [ctx from-ui cmd]
+(defn ui->client [ctx from-ui cmd r->w w->r]
   ;; Push user events to the client to forward along to the server(s)
   ;; Using a REQ socket here seems at least a little dubious. The alternatives
   ;; that spring to mind seem worse. I send input to the Client over this channel,
@@ -101,17 +127,17 @@ Need to handle this.")))
   ;; start worrying about things like error handling.
   (let [writer-sock (mq/connected-socket ctx :req
                                          "tcp://127.0.0.1:7842")]
-    (let [reader-port (async/<!! cmd)]
-      (log/debug "Pushing HELO to client")
+    (let [reader-port (async/<!! r->w)]
+      (log/debug "Pushing HELO to client, listening on port " reader-port)
       (mq/send-partial writer-sock :helo)
       ;; Trigger the client to connect to the socket bound in the
       ;; client->ui thread
       (mq/send writer-sock reader-port)
-      (log/debug "Client accepted the HELO")
+      (log/debug "Client accepted the HELO. Waiting for an ACK...")
       ;; Wait for the other side of the hand-shake
       (let [ack (mq/recv writer-sock)]
         (log/debug (str "Handshake:\n" ack)))
-      (ui->client-loop from-ui cmd writer-sock))))
+      (ui->client-loop from-ui cmd writer-sock r->w w->r))))
 
 (defn couple
   "Need to read from both ui and socket.
@@ -126,8 +152,11 @@ That simply does not work well in any sort of realistic scenario.
 This should be low-hanging fruit, but it's actually looking like some pretty hefty
 meat."
   [ctx from-ui to-ui cmd]  
-  (let [writer-thread (async/thread (ui->client ctx from-ui cmd))
-        reader-thread (async/thread (client->ui ctx to-ui cmd))
+  (let [ ;; read/write threads really need the capability to communicate
+        r->w (async/channel)
+        w->r (async/channel)
+        writer-thread (async/thread (ui->client ctx from-ui cmd r->w w->r))
+        reader-thread (async/thread (client->ui ctx to-ui cmd r->w w->r))
         ;; The timing could get very finicky on this, if there
         ;; are other threads involved.
         ;; Actually, that would be pretty disastrous.
@@ -176,15 +205,25 @@ TODO: formalize that using something like core.contract"
 
 (defn stop!
   [live-world]
-  (if-let [command-from-client (:command live-world)]
+  (log/info "Stopping communications system")
+  (if-let [cmd (:command live-world)]
     (do
       ;; Do this, to stop both the i/o threads
-      (async/>!! command-from-client :exit)
-      (async/>!! command-from-client :exit)
+      (log/debug "Commanding r/w threads to quit")
+      ;; TODO: Should really count up the threads in the coupler and
+      ;; send one exit message to each.
+      ;; Pretty solidly qualifies as YAGNI.
+      ;; Actually, should send this off to individual r/w threads. With a timeout
+      ;; in case that thread doesn't exist.
+      (async/>!! cmd :exit)
+      (log/debug "First exit command sent")
+      (async/>!! cmd :exit)
+      (log/debug "Second exit command sent")
       ;; Though it would be cleaner to just close this channel and
       ;; make them smart enough to understand what that means.
       ;; TODO: Make that work.
-      (async/close! command-from-client))
+      (async/close! cmd)
+      (log/debug "Exiting messages sent"))
     (log/warn "Missing command channel from client"))
 
   (if-let [in-async (:user-input live-world)]
