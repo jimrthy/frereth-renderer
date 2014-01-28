@@ -218,7 +218,7 @@ State: " state "\nMessaging: " (:messaging state)
                ;; All I really care about right here, right now is
                ;; establishing the heartbeat connection.
 
-               (log/trace "Communications Loop Received\n" 
+               (log/debug "Communications Loop Received\n" 
                              msg "\nfrom control channel")
                (throw (RuntimeException. "Start here"))
 

@@ -74,7 +74,7 @@ cmd is the command/control channel that lets us know when it's time to quit."
                                    ctx :rep
                                    "tcp://127.0.0.1"]
      ;; Let the input thread know which port this is listening on.
-     (log/info "Listening for Client on port: " port)
+     (log/info "Telling the Client to connect on port: " port)
      (async/>!! r->w port)
      (log/debug "Shaking hands with client")
      (client->ui-hand-shake reader-sock)
