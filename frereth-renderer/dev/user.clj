@@ -10,6 +10,7 @@
             [frereth-renderer.graphics :as graphics]
             [frereth-renderer.system :as system]))
 
+(set! *print-length* 50)
 (def system nil)
 
 (defn init
