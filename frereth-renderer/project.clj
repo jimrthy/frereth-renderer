@@ -69,6 +69,11 @@ java.library.path and that's good enough."
                  ;; penumbra.
                  ;; TODO: Figure out where this actually belongs.
                  [slick-util "1.0.0"]]
+  :documentation {:files {"basics" {:input "test/docs/basics.clj"
+                                    :title "Basics"
+                                    :sub-title "Wrapping my head around this idea"
+                                    :author "James Gatannah"
+                                    :email "james@frereth.com"}}}
   ;; Needed to get to lwjgl native libs...is this still true w/ penumbra?
   ;; Actually, since leiningen 2.1.0, probably not. This next entry seems
   ;; to be totally obsolete.
