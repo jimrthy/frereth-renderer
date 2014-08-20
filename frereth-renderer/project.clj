@@ -32,17 +32,17 @@ java.library.path and that's good enough."
 
   ;; Big swaths of these are only needed because I haven't found the time
   ;; to properly configure my local maven repo.
-  :dependencies [[byte-transforms "0.1.1"]
-                 [com.taoensso/timbre "2.7.1"]
-                 [im.chit/ribol "0.3.3"]
+  :dependencies [[byte-transforms "0.1.3"]
+                 [com.taoensso/timbre "3.2.1"]
+                 [im.chit/ribol "0.4.0"]
                  [jimrthy/cljeromq "0.1.0-SNAPSHOT"]
                  [jimrthy/penumbra "0.6.6-SNAPSHOT"]
                  [kephale/cantor "0.4.1"] ; Deprecated math optimization library
                  [kephale/lwjgl "2.9.0"]
                  [kephale/lwjgl-natives "2.9.0"]
                  [kephale/lwjgl-util "2.9.0"]
-                 [org.clojure/clojure "1.5.1"]
-                 [org.clojure/core.async "0.1.267.0-0d7780-alpha"]
+                 [org.clojure/clojure "1.7.0-alpha1"]
+                 [org.clojure/core.async "0.1.338.0-5c5012-alpha"]
                  [org.clojure/core.contracts "0.0.5"]
                  [org.clojure/math.combinatorics "0.0.7"]
                  ;; 0mq is at 4.0.3, while jeromq is only at 3.2.2.
@@ -77,10 +77,10 @@ java.library.path and that's good enough."
   :profiles {:uberjar {:aot :all}
              :dev {:source-paths ["dev"]
                    :dependencies  [[clj-ns-browser "1.3.1"]
-                                   [midje "1.6.0"]
+                                   [midje "1.6.3"]
                                    [night-vision "0.1.0-SNAPSHOT"]
-                                   [org.clojure/tools.namespace "0.2.4"]
-                                   [org.clojure/java.classpath "0.2.1"]
+                                   [org.clojure/tools.namespace "0.2.5"]
+                                   [org.clojure/java.classpath "0.2.2"]
                                    ;; Umm...do I really not want this for
                                    ;; real??
                                    [org.clojure/tools.logging "0.2.6"]
