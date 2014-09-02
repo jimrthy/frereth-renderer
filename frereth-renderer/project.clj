@@ -33,9 +33,10 @@ java.library.path and that's good enough."
   ;; Big swaths of these are only needed because I haven't found the time
   ;; to properly configure my local maven repo.
   :dependencies [[byte-transforms "0.1.3"]
+                 [com.stuartsierra/component "0.2.1"]
                  [com.taoensso/timbre "3.2.1"]
                  [im.chit/ribol "0.4.0"]
-                 [jimrthy/cljeromq "0.1.0-SNAPSHOT"]
+                 ;;[jimrthy/cljeromq "0.1.0-SNAPSHOT"]
                  [jimrthy/penumbra "0.6.6-SNAPSHOT"]
                  [kephale/cantor "0.4.1"] ; Deprecated math optimization library
                  [kephale/lwjgl "2.9.0"]
@@ -45,16 +46,9 @@ java.library.path and that's good enough."
                  [org.clojure/core.async "0.1.338.0-5c5012-alpha"]
                  [org.clojure/core.contracts "0.0.5"]
                  [org.clojure/math.combinatorics "0.0.7"]
-                 ;; 0mq is at 4.0.3, while jeromq is only at 3.2.2.
-                 ;; This is pretty vital for security considerations,
-                 ;; though those aren't so much an issue for this particular
-                 ;; layer.
-                 ;; TODO: Switch back to using the native java bindings.
-                 [org.jeromq/jeromq "0.3.0-SNAPSHOT"]
-                 ;; TODO: 0.1.4 has been released. Get this updated to match!
-                 [org.zeromq/cljzmq "0.1.1" :exclusions [org.zeromq/jzmq]]
+                 [org.zeromq/cljzmq "0.1.4"]
                  ;; TODO: An nrepl client?
-
+                 [prismatic/schema "0.2.6"]
 
                  ;; FIXME: Is this more appropriate here or in frereth-client?
                  ;; Is it worth an external dependency at all? Especially since
@@ -66,28 +60,19 @@ java.library.path and that's good enough."
                  ;; penumbra.
                  ;; TODO: Figure out where this actually belongs.
                  [slick-util "1.0.0"]]
-  ;; Needed to get to lwjgl native libs...is this still true w/ penumbra?
-  ;; Actually, since leiningen 2.1.0, probably not. This next entry seems
-  ;; to be totally obsolete.
-  :jvm-opts [~(str "-Djava.library.path=native/:"
+  :jvm-opts [~(str "-Djava.library.path=native/:/usr/local/lib:"
                    (System/getProperty "java.library.path"))]
   :main frereth-renderer.core
 
-  ;;:plugins [[lein-git-deps "0.0.1-SNAPSHOT"]]
   :profiles {:uberjar {:aot :all}
              :dev {:source-paths ["dev"]
                    :dependencies  [[clj-ns-browser "1.3.1"]
                                    [midje "1.6.3"]
-                                   [night-vision "0.1.0-SNAPSHOT"]
                                    [org.clojure/tools.namespace "0.2.5"]
                                    [org.clojure/java.classpath "0.2.2"]
                                    ;; Umm...do I really not want this for
                                    ;; real??
-                                   [org.clojure/tools.logging "0.2.6"]
-                                   [ritz/ritz-debugger "0.7.0"]]
-                   ;; c.f. https://gist.github.com/MichaelDrogalis/6638777
-                   :injections [(require 'night-vision.goggles)
-                                (require 'clojure.pprint)]}}
+                                   [org.clojure/tools.logging "0.2.6"]]}}
   :repl-options {:init-ns user}
   ;; FIXME: these are both experimental repos and should go away.
   ;; One was needed for core.async.

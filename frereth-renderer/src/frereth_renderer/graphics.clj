@@ -1,18 +1,30 @@
 (ns frereth-renderer.graphics
   (:require [clojure.core.async :as async]
             [clojure.pprint :refer (pprint)]
+            [com.stuartsierra.component :as component]
             [frereth-renderer.fsm :as fsm]
             [penumbra.app :as app]
             [penumbra.app.core :as core]
             [penumbra.opengl :as gl]
+            [ribol.core :refer (raise)]
             ;;[slingshot.slingshot :refer (throw+ try+)]
             [taoensso.timbre :as timbre])
-  (:use ribol.core)
   (:gen-class))
 
-;;;; FIXME: This namespace is getting too big. How much can I split out
-;;;; into smaller pieces?
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Schema
 
+(defrecord Visualizer [channel]
+  component/Lifecycle
+  (start
+    [this]
+    (assoc this :channel (async/chan)))
+  (stop
+    [this]
+    (async/close! channel)
+    (assoc this :channel nil)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Information
 ;;; This probably doesn't actually belong here
 
@@ -624,3 +636,14 @@ should be called."
             :message "Missing FSM atom??"}))
   (draw state)
   (app/repaint!))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Public
+
+(defn init
+  []
+  (raise :not-implemented))
+
+(defn new-visualizer
+  []
+  (->Visualizer))

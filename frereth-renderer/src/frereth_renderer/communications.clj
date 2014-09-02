@@ -1,37 +1,109 @@
 (ns frereth-renderer.communications
-  (:require [cljeromq.core :as mq]
+  (:require #_[cljeromq.core :as mq]
             [clojure.core.async :as async]
+            [com.stuartsierra.component :as component]
             [ribol.core :refer :all]
-            [taoensso.timbre :as timbre])
+            [schema.core :as s]
+            [taoensso.timbre :as timbre]
+            [zeromq.zmq :as mq])
   (:gen-class))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Schema
+
+(defrecord Channels [ui uo cmd]
+  component/Lifecycle
+  (start
+    [this]
+    (into this {:ui (async/chan)
+                :uo (async/chan)
+                :cmd (async/chan)}))
+  (stop
+    [this]
+    (into this {:ui nil
+                :uo nil
+                :cmd nil})))
+
+(defrecord Context [context]
+  component/Lifecycle
+  (start
+    [this]
+    (assoc this :context (mq/context 1)))
+  (stop
+    [this]
+    (mq/close (:context this))
+    (assoc this :context nil)))
+
+(s/defrecord URI [protocol :- s/Str
+                  address :- s/Str
+                  port :- s/Int]
+  component/Lifecycle
+  (start [this] this)
+  (stop [this] this))
+(declare build-url)
+
+(s/defrecord ClientUrl [uri :- URI]
+  component/Lifecycle
+  (start [this] this)
+  (stop [this] this))
+
+(s/defrecord ClientSocket [context :- Context
+                           socket
+                           url :- ClientUrl]
+  component/Lifecycle
+  (start
+   [this]
+   (let [sock (mq/socket context :dealer)
+         url (build-url url)]
+     (mq/connect sock)
+     (assoc this :socket sock)))
+  (stop
+   [this]
+   (mq/disconnect socket (build-url url))
+   (mq/set-linger socket 0)
+   (mq/close socket)
+   (assoc this :socket nil)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Utilities
 
 (defn client->ui-loop [reader-sock to-ui]
   ;; TODO: I really want to manage these exceptions right here, if at all possible.
   (raise-on [NullPointerException :zmq-npe]
             [Throwable :unknown]
             (loop []
-              (let [msg (mq/recv reader-sock (-> mq/const :control :dont-wait))]
+              (let [msg (mq/receive reader-sock :dont-wait)]
                 (when msg
                   (raise-on [Exception :async-fail]
-                            (async/>!! to-ui msg))))
-              (recur))))  ; FIXME: Add a way to exit loop
+                            (async/>!! to-ui msg)))
+                (recur)))))
 
 (defn client->ui [ctx to-ui]
+  (raise :not-implemented)
   (manage
-   (let [reader-sock (mq/connected-socket ctx :dealer
-                                          "tcp://localhost:56568")]
+   (let [reader-sock (comment (mq/connected-socket ctx :dealer
+                                                   "tcp://localhost:56568"))]
      (timbre/info "Entering Read Thread on socket " reader-sock)
      (client->ui-loop reader-sock to-ui))
    (on :zmq-npe [ex]
        ;; Debugging...what makes more sense instead?
        (escalate ex))))
 
-(defn ui->client [ctx from-ui cmd]
+(defn ui->client
+  "Send user input messages to the client.
+Over a 0mq socket created from ctx.
+from-ui is the async channel where input events come from
+cmd is an async channel that I was probably intending to use
+for control messages.
+Actually, it looks like I was planning on it being for
+messages that come from the server"
+  [ctx from-ui cmd]
   ;; Next address is totally arbitrary.
   ;; And, honestly, the client should probably be what does
   ;; the binding. Have to start somewhere.
-  (let [writer-sock (mq/connected-socket ctx :router
-                                         "tcp://*:56567")]
+  (raise :not-implemented)
+  (let [writer-sock (comment (mq/connected-socket ctx :dealer
+                                                  "tcp://127.0.0.1:56567"))]
     (loop [to (async/timeout 60)] ; TODO: How long to wait?
       (let [[v ch] (async/alts!! [from-ui cmd to])]
         (condp = ch
@@ -56,58 +128,76 @@ That simply does not work well in any sort of realistic scenario.
 This should be low-hanging fruit, but it's actually looking like some pretty hefty
 meat."
   [ctx from-ui to-ui cmd]
+  (raise :not-implemented)
   (let [writer-thread (async/thread (ui->client ctx from-ui cmd))
         reader-thread (async/thread (client->ui ctx to-ui))]
     [writer-thread reader-thread]))
 
-(defn init
-  []
-  (atom nil))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Public
 
-(defn start
-  "N.B. dead-world is an atom.
+(comment (defn start
+           "N.B. dead-world is an atom.
 TODO: formalize that using something like core.contract"
-  [dead-world]
-  ;; TODO: It actually might make some sort of sense to have multiple
-  ;; threads involved here.
-  (let [ctx (mq/context 1)
-        ;; Q: what kind of socket makes sense here?
-        ;; A: None, really. Since sockets aren't thread safe.
-        ;socket (mq/socket ctx :router)
-        ui (async/chan) ; user input -> client
-        uo (async/chan) ; client -> graphics
-        command (async/chan)]
-    ;; FIXME: Do I want into, merge, or something totally different?
-    ;; FIXME: Whichever. Need an async channel that uses this socket
-    ;; to communicate back and forth with the graphics namespace
-    ;; to actually implement the UI.
-    (couple ctx ui uo command)
+           [dead-world]
+           ;; TODO: It actually might make some sort of sense to have multiple
+           ;; threads involved here.
+           (let [ctx (mq/context 1)
+                 ;; Q: what kind of socket makes sense here?
+                 ;; A: None, really. Since sockets aren't thread safe.
+                                        ;socket (mq/socket ctx :router)
+                 ui (async/chan)              ; user input -> client
+                 uo (async/chan)              ; client -> graphics
+                 command (async/chan)]
+             ;; FIXME: Do I want into, merge, or something totally different?
+             ;; FIXME: Whichever. Need an async channel that uses this socket
+             ;; to communicate back and forth with the graphics namespace
+             ;; to actually implement the UI.
+             (couple ctx ui uo command)
 
-    (reset! dead-world {:context ctx
-                        ;; Output to Client
-                        :user-input ui
-                        ;; Input from Client
-                        :command command
-                        ;; Feedback to user
-                        :user-output uo
-                        ;; For notifying -main that the graphics loop is terminating
-                        :terminator (async/chan)})))
+             (reset! dead-world {:context ctx
+                                 ;; Output to Client
+                                 :user-input ui
+                                 ;; Input from Client
+                                 :command command
+                                 ;; Feedback to user
+                                 :user-output uo
+                                 ;; For notifying -main that the graphics loop is terminating
+                                 :terminator (async/chan)}))))
 
-(defn stop!
-  [live-world]
-  (if-let [local-async (:user-input live-world)]
-    (async/close! local-async)
-    (timbre/warn "No local input channel...what happened?"))
-  (if-let [command-from-client (:command live-world)]
-    (async/close! command-from-client)
-    (timbre/warn "Missing command channel from client"))
-  (let [ctx (:context live-world)
-        socket (:socket live-world)]
-    ;; FIXME: Realistically, both these situations should throw an exception
-    (if socket
-      (mq/close! socket)
-      (timbre/error "Missing communications socket"))
-    (if ctx
-      (mq/terminate! ctx)
-      (timbre/error "Missing communications context")))
-  live-world)
+(comment (defn stop!
+           [live-world]
+           (if-let [local-async (:user-input live-world)]
+             (async/close! local-async)
+             (timbre/warn "No local input channel...what happened?"))
+           (if-let [command-from-client (:command live-world)]
+             (async/close! command-from-client)
+             (timbre/warn "Missing command channel from client"))
+           (let [ctx (:context live-world)
+                 socket (:socket live-world)]
+             ;; FIXME: Realistically, both these situations should throw an exception
+             (if socket
+               (mq/close! socket)
+               (timbre/error "Missing communications socket"))
+             (if ctx
+               (mq/terminate! ctx)
+               (timbre/error "Missing communications context")))
+           live-world))
+
+(defn new-channels
+  []
+  (->Channels))
+
+(defn new-client-socket
+  []
+  (->ClientSocket))
+
+(defn new-client-url
+  [{:keys [client-protocol client-address client-port]}]
+  (map->ClientUrl {:protocol client-protocol
+                   :address client-address
+                   :port client-port}))
+
+(defn new-context
+  []
+  (->Context))
