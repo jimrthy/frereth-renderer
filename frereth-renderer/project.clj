@@ -33,21 +33,32 @@ java.library.path and that's good enough."
   ;; Big swaths of these are only needed because I haven't found the time
   ;; to properly configure my local maven repo.
   :dependencies [[byte-transforms "0.1.3"]
+                 [com.badlogicgames.gdx/gdx "1.3.1"]
+                 [com.badlogicgames.gdx/gdx-backend-lwjgl "1.3.1"]
+                 [com.badlogicgames.gdx/gdx-box2d "1.3.1"]
+                 [com.badlogicgames.gdx/gdx-box2d-platform "1.3.1"
+                  :classifier "natives-desktop"]
+                 [com.badlogicgames.gdx/gdx-bullet "1.3.1"]
+                 [com.badlogicgames.gdx/gdx-bullet-platform "1.3.1"
+                  :classifier "natives-desktop"]
+                 [com.badlogicgames.gdx/gdx-platform "1.3.1"
+                  :classifier "natives-desktop"]
                  [com.stuartsierra/component "0.2.1"]
                  [com.taoensso/timbre "3.2.1"]
                  [frereth-client "0.1.0-SNAPSHOT"]
                  [im.chit/ribol "0.4.0"]
                  ;;[jimrthy/cljeromq "0.1.0-SNAPSHOT"]
-                 [jimrthy/penumbra "0.6.6-SNAPSHOT"]
-                 [kephale/cantor "0.4.1"] ; Deprecated math optimization library
-                 [kephale/lwjgl "2.9.0"]
-                 [kephale/lwjgl-natives "2.9.0"]
-                 [kephale/lwjgl-util "2.9.0"]
+                 ;;[jimrthy/penumbra "0.6.6-SNAPSHOT"]
+                 ;;[kephale/cantor "0.4.1"] ; Deprecated math optimization library
+                 ;;[kephale/lwjgl "2.9.0"]
+                 ;;[kephale/lwjgl-natives "2.9.0"]
+                 ;;[kephale/lwjgl-util "2.9.0"]
                  [org.clojure/clojure "1.7.0-alpha1"]
                  [org.clojure/core.async "0.1.338.0-5c5012-alpha"]
                  [org.clojure/core.contracts "0.0.5"]
                  [org.clojure/math.combinatorics "0.0.7"]
                  [org.zeromq/cljzmq "0.1.4"]
+                 [play-clj "0.3.10"]
                  ;; TODO: An nrepl client?
                  [prismatic/schema "0.2.6"]
 
@@ -60,7 +71,8 @@ java.library.path and that's good enough."
                  ;; it most likely implies a missing dependency in
                  ;; penumbra.
                  ;; TODO: Figure out where this actually belongs.
-                 [slick-util "1.0.0"]]
+                 ;;[slick-util "1.0.0"]
+                 ]
   :jvm-opts [~(str "-Djava.library.path=native/:/usr/local/lib:"
                    (System/getProperty "java.library.path"))]
   :main frereth-renderer.core

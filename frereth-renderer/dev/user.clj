@@ -11,12 +11,12 @@
             [frereth-renderer.graphics :as graphics]
             [frereth-renderer.system :as system]))
 
-(set! *print-length* 50)
 (def system nil)
 
 (defn init
   "Constructs the current development system."
   []
+  (set! *print-length* 50)
   (alter-var-root #'system
     (constantly (system/init))))
 

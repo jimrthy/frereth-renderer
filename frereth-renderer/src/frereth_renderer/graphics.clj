@@ -1,12 +1,18 @@
 (ns frereth-renderer.graphics
+  (:refer-clojure :exclude [run!])
   (:require [clojure.core.async :as async]
             [clojure.pprint :refer (pprint)]
             [com.stuartsierra.component :as component]
             [frereth-renderer.fsm :as fsm]
-            [penumbra.app :as app]
-            [penumbra.app.core :as core]
-            [penumbra.opengl :as gl]
-            [ribol.core :refer (raise)]
+            #_[penumbra.app :as app]
+            #_[penumbra.app.core :as core]
+            #_[penumbra.opengl :as gl]
+            [play-clj.core :as play-clj]
+            [play-clj.g2d :as g2d]
+            [play-clj.g3d :as g3d]
+            [play-clj.math :as math]
+            [play-clj.ui :as ui]
+            [ribol.core :refer (manage on raise)]
             ;;[slingshot.slingshot :refer (throw+ try+)]
             [taoensso.timbre :as timbre])
   (:gen-class))
@@ -32,7 +38,7 @@
   "What's available?
 Note that penumbra has a get-version that returns a float version of the same value."
   []
-  (gl/get-string :version))
+  (play-clj/gl :gl-version))
 
 ;;; Initialization
 
@@ -63,7 +69,7 @@ that there's just too much going on in here."
      (configure-windowing {}))
   ([params]
      (timbre/trace "Configuring the Window. Params:\n" params)
-     (app/vsync! true)
+     (comment (app/vsync! true))
      ;; I don't want to do this!!
      ;; Each client/world needs to set up its own viewing matrix.
      ;; Until I get to that point, I need a basic sample idea that
@@ -72,9 +78,10 @@ that there's just too much going on in here."
      ;; This doesn't seem to make any actual difference. As a bonus,
      ;; closing the window on Windows doesn't actually work. I'm
      ;; not getting any feedback about the error, either.
-     (gl/clear-color 0.5 0.0 0.5 0.0)
-     (gl/frustum-view 60.0 (/ (double 4) 3) 1.0 100.0)
-     (gl/load-identity)
+     (comment (gl/clear-color 0.5 0.0 0.5 0.0)
+              (gl/frustum-view 60.0 (/ (double 4) 3) 1.0 100.0)
+              (gl/load-identity))
+     (raise :not-implemented)
 
      params))
 
@@ -95,8 +102,9 @@ never gets called."
   ;; It really needs to be set for whichever window is currently active.
   ;; But it's a start.
   ;; Besides...this is the vast majority of what init-gl was doing for starters.
-  (gl/frustum-view 60.0 (/ (double w) h) 1.0 100.0)
-  (gl/load-identity)
+  (comment (gl/frustum-view 60.0 (/ (double w) h) 1.0 100.0)
+           (gl/load-identity))
+  (raise :not-implemented)
   state)
 
 ;;; Q: Do I really want to send this sort of low-level communication to
@@ -181,21 +189,22 @@ State:\n" state)]
 This makes that happen"
   [visual-details]
   (timbre/info "Kicking off penumbra window")
-  (app/start
-   {:close close
-    :display display
-    :init configure-windowing
-    :key-press key-press
-    :key-release key-release
-    :key-type key-type
-    :mouse-click mouse-click
-    :mouse-down mouse-down
-    :mouse-drag mouse-drag
-    :mouse-move mouse-move
-    :mouse-up mouse-up
-    :reshape reshape
-    :update update}
-   visual-details))
+  (raise :not-implemented)
+  (comment (app/start
+            {:close close
+             :display display
+             :init configure-windowing
+             :key-press key-press
+             :key-release key-release
+             :key-type key-type
+             :mouse-click mouse-click
+             :mouse-down mouse-down
+             :mouse-drag mouse-drag
+             :mouse-move mouse-move
+             :mouse-up mouse-up
+             :reshape reshape
+             :update update}
+            visual-details)))
 
 (defn begin-communications
   " Actually updating things isn't as interesting [at first] or [quite]
@@ -338,7 +347,7 @@ Kicking off the fsm. Original agent:\n" (:fsm graphics)
   ;; I don't think I want this.
   ;; TODO: The app has a :destroy! key that points to a function
   ;; that looks suspiciously as though it's what I actually want.
-  (core/destroy! universe))
+  (comment (core/destroy! universe)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
@@ -357,16 +366,18 @@ Kicking off the fsm. Original agent:\n" (:fsm graphics)
   (let [w2 (/ width 2.0)
         h2 (/ height 2.0)]
     ;;(gl/translate w2 h2 0)
-    (gl/translate 0 -1.5 -3)
-    (gl/rotate angle 0 0 1)
-    (gl/scale 2 2 1)
-    (gl/draw-triangles (drawer))))
+    (comment (gl/translate 0 -1.5 -3)
+             (gl/rotate angle 0 0 1)
+             (gl/scale 2 2 1)
+             (gl/draw-triangles (drawer)))
+    (raise :not-implemented)))
 
 (defn draw-colored-vertex 
   [color vertex]
   (comment (timbre/trace "Drawing a " color " vertex at " vertex))
-  (gl/color (color 0) (color 1) (color 2))
-  (gl/vertex (vertex 0) (vertex 1)))
+  (comment (gl/color (color 0) (color 1) (color 2))
+           (gl/vertex (vertex 0) (vertex 1)))
+  (raise :not-implemented))
 
 (defn draw-multi-colored-triangle
   [[color1 color2 color3] [vertex1 vertex2 vertex3]]
@@ -635,7 +646,7 @@ should be called."
             :state state
             :message "Missing FSM atom??"}))
   (draw state)
-  (app/repaint!))
+  (comment (app/repaint!)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public

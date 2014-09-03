@@ -16,16 +16,16 @@
   [overriding-config-options]
   (set! *warn-on-reflection* true)
 
-  (let [cfg (into config/defaults overriding-config-options)]
+  (let [cfg (into (config/defaults) overriding-config-options)]
     (-> (component/system-map
          :channels (comm/new-channels)
          :client (client/init)
-         :client-socket (comm/new-client-channel)
+         :client-socket (comm/new-client-socket)
          :client-url (comm/new-client-url cfg)
          :context (comm/new-context)
-         :graphics (graphics/initialize)
+         :graphics (graphics/init)
          :logging (logging/new)
-         :visualizer (graphics/new-visualization-channel))
+         :visualizer (graphics/new-visualizer))
         
         (component/system-using
          {:channels [:logging]

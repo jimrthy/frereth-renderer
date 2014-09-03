@@ -1,33 +1,17 @@
 (ns frereth-renderer.core
   (:require [clojure.core.async :as async]
-   [frereth-renderer.graphics :as graphics]
+            [com.stuartsierra.component :as component]
+            [frereth-renderer.graphics :as graphics]
             [frereth-renderer.system :as sys]
             [taoensso.timbre :as timbre
              :refer [trace debug info warn error fatal spy with-log-level]])
   (:gen-class))
 
-(comment (defn fsm
-           "OK, so it isn't exactly an impressive state machine.
-Especially since I have an entire FSM namespace now.
-FIXME: This needs to just go away."
-           [universe]
-           (trace "Initializing State Machine")
-           (let [sock @(:client-socket universe)]
-             ;; TODO: Show a splash screen
-             (trace "Really should be showing a splash screen")
-             ;; I'm drawing something. It's just blank.
-
-             (mq/send sock :ready-to-draw :dont-wait)
-             (trace "Waiting for Response from Client")
-             (let [response (mq/recv sock :wait)]
-               ;; TODO: Move on to do something interesting.
-               (trace (str response))))))
-
 (defn -main
   "I don't do a whole lot ... yet."
   [& args]
   (let [dead-world (sys/init)
-        world (sys/start dead-world)]
+        world (component/start dead-world)]
     (try
       ;; Wait for this to exit.
       ;; This approach seems horribly wrong.
@@ -50,4 +34,4 @@ FIXME: This needs to just go away."
       ;; Then clean up
       ;; I'm getting here almost instantly. Meaning that front-end
       ;; apparently isn't getting set to anything that seems reasonable.
-      (finally (sys/stop world)))))
+      (finally (component/stop world)))))
