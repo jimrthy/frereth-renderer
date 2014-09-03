@@ -35,6 +35,7 @@ java.library.path and that's good enough."
   :dependencies [[byte-transforms "0.1.3"]
                  [com.stuartsierra/component "0.2.1"]
                  [com.taoensso/timbre "3.2.1"]
+                 [frereth-client "0.1.0-SNAPSHOT"]
                  [im.chit/ribol "0.4.0"]
                  ;;[jimrthy/cljeromq "0.1.0-SNAPSHOT"]
                  [jimrthy/penumbra "0.6.6-SNAPSHOT"]
@@ -77,7 +78,6 @@ java.library.path and that's good enough."
   ;; FIXME: these are both experimental repos and should go away.
   ;; One was needed for core.async.
   ;; I think the other's for jeromq.
+  ;; TODO: Make them go away and see what breaks
   :repositories {"sonatype-oss-public" "https://oss.sonatype.org/content/groups/public/"
-                 "sonatype-nexus-snapshots" "https://oss.sonatype.org/content/repositories/snapshots"
-		 ;"local" "file:/cygdrive/c/Users/James-PC/.m2"
-                 })
+                 "sonatype-nexus-snapshots" "https://oss.sonatype.org/content/repositories/snapshots"})

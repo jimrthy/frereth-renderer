@@ -1,9 +1,9 @@
 (ns frereth-renderer.communications
-  (:require #_[cljeromq.core :as mq]
-            [clojure.core.async :as async]
+  (:require [clojure.core.async :as async]
             [com.stuartsierra.component :as component]
             [ribol.core :refer :all]
             [schema.core :as s]
+            [schema.macros :as sm]
             [taoensso.timbre :as timbre]
             [zeromq.zmq :as mq])
   (:gen-class))
@@ -34,7 +34,7 @@
     (mq/close (:context this))
     (assoc this :context nil)))
 
-(s/defrecord URI [protocol :- s/Str
+(sm/defrecord URI [protocol :- s/Str
                   address :- s/Str
                   port :- s/Int]
   component/Lifecycle
@@ -42,12 +42,12 @@
   (stop [this] this))
 (declare build-url)
 
-(s/defrecord ClientUrl [uri :- URI]
+(sm/defrecord ClientUrl [uri :- URI]
   component/Lifecycle
   (start [this] this)
   (stop [this] this))
 
-(s/defrecord ClientSocket [context :- Context
+(sm/defrecord ClientSocket [context :- Context
                            socket
                            url :- ClientUrl]
   component/Lifecycle

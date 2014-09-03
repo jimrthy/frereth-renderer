@@ -1,6 +1,7 @@
 (ns frereth-renderer.system
   (:require [clojure.core.async :as async]
             [com.stuartsierra.component :as component]
+            [frereth-client.system :as client]
             [frereth-renderer.communications :as comm]
             [frereth-renderer.config :as config]
             [frereth-renderer.fsm :as fsm]
@@ -18,6 +19,7 @@
   (let [cfg (into config/defaults overriding-config-options)]
     (-> (component/system-map
          :channels (comm/new-channels)
+         :client (client/init)
          :client-socket (comm/new-client-channel)
          :client-url (comm/new-client-url cfg)
          :context (comm/new-context)
