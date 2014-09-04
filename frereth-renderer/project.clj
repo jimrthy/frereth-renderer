@@ -53,7 +53,7 @@ java.library.path and that's good enough."
                  ;;[kephale/lwjgl "2.9.0"]
                  ;;[kephale/lwjgl-natives "2.9.0"]
                  ;;[kephale/lwjgl-util "2.9.0"]
-                 [org.clojure/clojure "1.7.0-alpha1"]
+                 [org.clojure/clojure "1.6.0"]
                  [org.clojure/core.async "0.1.338.0-5c5012-alpha"]
                  [org.clojure/core.contracts "0.0.5"]
                  [org.clojure/math.combinatorics "0.0.7"]

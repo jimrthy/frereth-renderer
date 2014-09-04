@@ -20,6 +20,9 @@
                 :cmd (async/chan)}))
   (stop
     [this]
+    (doseq [c [ui uo cmd]]
+      (when c
+        (async/close! c)))
     (into this {:ui nil
                 :uo nil
                 :cmd nil})))

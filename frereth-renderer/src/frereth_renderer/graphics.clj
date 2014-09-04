@@ -13,9 +13,7 @@
             [play-clj.math :as math]
             [play-clj.ui :as ui]
             [ribol.core :refer (manage on raise)]
-            ;;[slingshot.slingshot :refer (throw+ try+)]
-            [taoensso.timbre :as timbre])
-  (:gen-class))
+            [taoensso.timbre :as timbre]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schema

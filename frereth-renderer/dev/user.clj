@@ -9,7 +9,8 @@
             [com.stuartsierra.component :as component]
             [frereth-renderer.communications :as comm]
             [frereth-renderer.graphics :as graphics]
-            [frereth-renderer.system :as system]))
+            [frereth-renderer.system :as system]
+            [ribol.core :refer (raise)]))
 
 (def system nil)
 
@@ -51,5 +52,5 @@ Can't just call this go: that conflicts with a macro from core.async."
   ;; Which doesn't really work at all on a Mac: more impetus than
   ;; ever to get a REPL working there internally.
   ;; But I don't need it yet.
-  (throw (RuntimeException. "Currently broken"))
+  (comment (raise :currently-broken))
   (refresh :after 'user/go-go))

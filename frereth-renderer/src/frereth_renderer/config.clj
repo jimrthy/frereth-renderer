@@ -1,7 +1,9 @@
 (ns frereth-renderer.config)
 
 (defn client-url []
-  "tcp://localhost:7840")
+  {:protocol "inproc"
+   :address "renderer<->client"
+   :port nil})
 
 (defn defaults
   []
