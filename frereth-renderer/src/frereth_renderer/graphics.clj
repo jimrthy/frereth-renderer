@@ -279,12 +279,6 @@ State: " state "\nMessaging: " (:messaging state)
   (begin-communications visual-details)
   (timbre/trace "Communications begun"))
 
-(defn init []
-  (let [system-state (init-fsm)]
-    (timbre/info "Initial FSM state: " system-state)
-    {:renderer nil
-     :fsm system-state}))
-
 ;; Don't want to declare this here. Really shouldn't be calling it directly
 ;; at all. Honestly, need something like a var that I can override with
 ;; the current view.
@@ -331,13 +325,7 @@ Kicking off the fsm. Original agent:\n" (:fsm graphics)
 (defn stop [universe]
   ;; FIXME: Is there anything I can do here?
   ;; (That's a pretty vital requirement)
-  (into universe
-        ;; Very tempting to close the window. Actually,
-        ;; really must do that if I want to reclaim resources
-        ;; so I can reset them.
-        ;; That means expanding penumbra's API.
-        ;; TODO: Make that happen.
-        (fsm/stop (-> universe :graphics :fsm)))
+  
   ;; FIXME: It would be much better to pass in the actual window(s)
   ;; that I want to destroy.
   ;; Then again, that may be totally pointless until/if lwjgl
@@ -347,7 +335,13 @@ Kicking off the fsm. Original agent:\n" (:fsm graphics)
   ;; I don't think I want this.
   ;; TODO: The app has a :destroy! key that points to a function
   ;; that looks suspiciously as though it's what I actually want.
-  (comment (core/destroy! universe)))
+  (comment (core/destroy! (into universe
+                                ;; Very tempting to close the window. Actually,
+                                ;; really must do that if I want to reclaim resources
+                                ;; so I can reset them.
+                                ;; That means expanding penumbra's API.
+                                ;; TODO: Make that happen.
+                                (fsm/stop (-> universe :graphics :fsm))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
@@ -406,7 +400,7 @@ Kicking off the fsm. Original agent:\n" (:fsm graphics)
      (fsm/current-state (:fsm state))))
 
 (defmethod draw :__dead[params]
-  "Initializing...absolutely nothing interesting has happened yet"
+  ;; Initializing...absolutely nothing interesting has happened yet
   [params]
   ;; FIXME: Fill the screen with whitespace, or something vaguely
   ;; interesting
@@ -414,8 +408,8 @@ Kicking off the fsm. Original agent:\n" (:fsm graphics)
   (draw-splash-triangle params 0.5))
 
 (defmethod draw :disconnected [params]
-  "Rendering subsystem is up and ready to go. Waiting to hear from the client."
   [params]
+  ;; Rendering subsystem is up and ready to go. Waiting to hear from the client.
   (comment (timbre/trace "draw-initial-splash"))
   (draw-splash-triangle params 1.0))
 
@@ -427,14 +421,14 @@ Kicking off the fsm. Original agent:\n" (:fsm graphics)
     (draw-splash-triangle params intensity)))
 
 (defmethod draw :waiting-for-server [params]
-  "Have connected to the client. Waiting to hear back from the server"
   [params]
+  ;; Have connected to the client. Waiting to hear back from the server
   (draw-secondary-splash params))
 
 (defmethod draw :server-connected [params]
-  "Client's connected to the server. Just waiting for the handshake to
-finish so we can start drawing whatever the server wants."
   [params]
+  ;; Client's connected to the server. Just waiting for the handshake to
+  ;; finish so we can start drawing whatever the server wants.
   (draw-secondary-splash (into params
                                {:angle (* (:angle params) 2)})))
 
@@ -541,7 +535,7 @@ I'm trying to remember/figure out how all the pieces fit together."
         (timbre/error (str error ": " params)))
     (catch RuntimeException e
       (timbre/error e)
-      (throw))
+      (raise [:normal-update-failure {:reason e}]))
     (catch Exception e
       ;; I'm very strongly inclined to catch absolutely
       ;; anything that went wrong here and just log/swallow
@@ -552,7 +546,7 @@ I'm trying to remember/figure out how all the pieces fit together."
       ;; Which really means low-level hardware issues.
       ;; Those probably do need to bubble up.
       (timbre/error e)
-      (throw)))
+      (raise [:unexpected-update-failure {:reason e}])))
   ;; TODO: This almost definitely needs to return the updated state.
   ;; I'm guessing that the error handling is ruining that.
   )
@@ -651,10 +645,13 @@ should be called."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
 
-(defn init
-  []
-  (raise :not-implemented))
+(defn init []
+  (raise [:obsolete-method {:reason "Use a Component instead"}])
+  (let [system-state (init-fsm)]
+    (timbre/info "Initial FSM state: " system-state)
+    {:renderer nil
+     :fsm system-state}))
 
 (defn new-visualizer
   []
-  (->Visualizer))
+  (map->Visualizer {}))

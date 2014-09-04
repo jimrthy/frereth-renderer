@@ -19,7 +19,7 @@
   (let [cfg (into (config/defaults) overriding-config-options)]
     (-> (component/system-map
          :channels (comm/new-channels)
-         :client (client/init)
+         :client (client/init {})
          :client-socket (comm/new-client-socket)
          :client-url (comm/new-client-url cfg)
          :context (comm/new-context)

@@ -18,7 +18,7 @@
   []
   (set! *print-length* 50)
   (alter-var-root #'system
-    (constantly (system/init))))
+    (constantly (system/init {}))))
 
 (defn start
   "Starts the current development system."

@@ -1,7 +1,7 @@
 (ns frereth-renderer.fsm-test
   (:require [frereth-renderer.fsm :as fsm]
-            [clojure.pprint :refer [pprint]])
-  (:use midje.sweet))
+            [clojure.pprint :refer [pprint]]
+            [midje.sweet :refer (contains fact facts)]))
 
 (facts "From a bingo game:"
        ;; This gets extremely repetitive.

@@ -10,7 +10,7 @@
 (defn -main
   "I don't do a whole lot ... yet."
   [& args]
-  (let [dead-world (sys/init)
+  (let [dead-world (sys/init {})
         world (component/start dead-world)]
     (try
       ;; Wait for this to exit.

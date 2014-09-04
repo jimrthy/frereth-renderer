@@ -1,9 +1,8 @@
 (ns frereth-renderer.fsm
   (:require [clojure.core.async :as async]
             [clojure.core.contracts :as contract]
-            ;;[slingshot.slingshot :refer [throw+ try+]]
+            [ribol.core :refer (manage raise)]
             [taoensso.timbre :as timbre])
-  (:use ribol.core)
   (:gen-class))
 
 ;;; It's very tempting to turn this entire thing into a
@@ -80,7 +79,7 @@ OTOH...it can be extremely convenient"
       (timbre/error "Broken FSM transition: trying to send '"
              (str transition-key) "' to\n'" (str fsm) "'")
       ;; This definitely falls in the category of "fail early"
-      (throw))))
+      (raise [:bad-fsm-transition {:reason ex}]))))
 
 (def start!
   (contract/with-constraints

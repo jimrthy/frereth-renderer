@@ -69,8 +69,8 @@
 
 (defn client->ui-loop [reader-sock to-ui]
   ;; TODO: I really want to manage these exceptions right here, if at all possible.
-  (raise-on [NullPointerException :zmq-npe]
-            [Throwable :unknown]
+  (raise-on [NullPointerException :zmq-npe
+             Throwable :unknown]
             (loop []
               (let [msg (mq/receive reader-sock :dont-wait)]
                 (when msg
@@ -186,18 +186,19 @@ TODO: formalize that using something like core.contract"
 
 (defn new-channels
   []
-  (->Channels))
+  (map->Channels {}))
 
 (defn new-client-socket
   []
-  (->ClientSocket))
+  (map->ClientSocket {}))
 
 (defn new-client-url
   [{:keys [client-protocol client-address client-port]}]
-  (map->ClientUrl {:protocol client-protocol
-                   :address client-address
-                   :port client-port}))
+  (let [uri (strict-map->URI {:protocol client-protocol
+                              :address client-address
+                              :port client-port})]
+    (strict-map->ClientUrl {:uri uri})))
 
 (defn new-context
   []
-  (->Context))
+  (map->Context {}))
