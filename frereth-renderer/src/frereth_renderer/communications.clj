@@ -57,12 +57,12 @@
   component/Lifecycle
   (start
    [this]
-   (println "Is there any indication that I'm getting here?")
-   (raise :seriously?!)
    (log/info "Connecting Client Socket to: "
-             (with-out-str (pprint  url)))
+             (with-out-str (pprint  url))
+             ("\nout of:"
+              (with-out-str (pprint this))))
    (try
-     (let [sock (mq/socket context :dealer)
+     (let [sock (mq/socket (:context context) :dealer)
            url (build-url url)]
        (try
          (mq/connect sock)
@@ -149,6 +149,12 @@ meat."
   (let [writer-thread (async/thread (ui->client ctx from-ui cmd))
         reader-thread (async/thread (client->ui ctx to-ui))]
     [writer-thread reader-thread]))
+
+(sm/defn build-url
+  "This is pretty naive.
+But works for my purposes"
+  [{:keys [protocol address port] :as uri} :- URI]
+  (str protocol "://" address ":" port))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
