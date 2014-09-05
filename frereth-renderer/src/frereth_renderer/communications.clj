@@ -1,10 +1,11 @@
 (ns frereth-renderer.communications
   (:require [clojure.core.async :as async]
+            [clojure.pprint :refer (pprint)]
             [com.stuartsierra.component :as component]
             [ribol.core :refer :all]
             [schema.core :as s]
             [schema.macros :as sm]
-            [taoensso.timbre :as timbre]
+            [taoensso.timbre :as log]
             [zeromq.zmq :as mq])
   (:gen-class))
 
@@ -56,10 +57,23 @@
   component/Lifecycle
   (start
    [this]
-   (let [sock (mq/socket context :dealer)
-         url (build-url url)]
-     (mq/connect sock)
-     (assoc this :socket sock)))
+   (println "Is there any indication that I'm getting here?")
+   (raise :seriously?!)
+   (log/info "Connecting Client Socket to: "
+             (with-out-str (pprint  url)))
+   (try
+     (let [sock (mq/socket context :dealer)
+           url (build-url url)]
+       (try
+         (mq/connect sock)
+         (catch RuntimeException ex
+           (raise [:client-socket-connection-error
+                   :reason ex])))
+       (assoc this :socket sock))
+     (catch RuntimeException ex
+       (log/error ex)
+       (raise [:client-socket-creation-failure
+               {:reason ex}]))))
   (stop
    [this]
    (mq/disconnect socket (build-url url))
@@ -86,7 +100,7 @@
   (manage
    (let [reader-sock (comment (mq/connected-socket ctx :dealer
                                                    "tcp://localhost:56568"))]
-     (timbre/info "Entering Read Thread on socket " reader-sock)
+     (log/info "Entering Read Thread on socket " reader-sock)
      (client->ui-loop reader-sock to-ui))
    (on :zmq-npe [ex]
        ;; Debugging...what makes more sense instead?
@@ -172,19 +186,19 @@ TODO: formalize that using something like core.contract"
            [live-world]
            (if-let [local-async (:user-input live-world)]
              (async/close! local-async)
-             (timbre/warn "No local input channel...what happened?"))
+             (log/warn "No local input channel...what happened?"))
            (if-let [command-from-client (:command live-world)]
              (async/close! command-from-client)
-             (timbre/warn "Missing command channel from client"))
+             (log/warn "Missing command channel from client"))
            (let [ctx (:context live-world)
                  socket (:socket live-world)]
              ;; FIXME: Realistically, both these situations should throw an exception
              (if socket
                (mq/close! socket)
-               (timbre/error "Missing communications socket"))
+               (log/error "Missing communications socket"))
              (if ctx
                (mq/terminate! ctx)
-               (timbre/error "Missing communications context")))
+               (log/error "Missing communications context")))
            live-world))
 
 (defn new-channels

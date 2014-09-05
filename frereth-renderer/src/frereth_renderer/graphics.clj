@@ -643,13 +643,6 @@ should be called."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
 
-(defn init []
-  (raise [:obsolete-method {:reason "Use a Component instead"}])
-  (let [system-state (init-fsm)]
-    (timbre/info "Initial FSM state: " system-state)
-    {:renderer nil
-     :fsm system-state}))
-
 (defn new-visualizer
   []
   (map->Visualizer {}))

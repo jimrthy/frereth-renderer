@@ -23,7 +23,6 @@
          :client-socket (comm/new-client-socket)
          :client-url (comm/new-client-url cfg)
          :context (comm/new-context)
-         :graphics (graphics/init)
          :logging (logging/new)
          :visualizer (graphics/new-visualizer))
         
@@ -32,7 +31,7 @@
           :client-socket [:client-url :context]
           :client-url [:logging]
           :context [:logging]
-          :graphics [:logging]}))))
+          :visualizer [:logging]}))))
 
 (comment (defn quit-being-hermit
            "Make contact with the outside world"
