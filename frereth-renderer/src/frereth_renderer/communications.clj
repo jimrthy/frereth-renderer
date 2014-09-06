@@ -2,6 +2,7 @@
   (:require [clojure.core.async :as async]
             [clojure.pprint :refer (pprint)]
             [com.stuartsierra.component :as component]
+            [plumbing.core :as pc]
             [ribol.core :refer :all]
             [schema.core :as s]
             [schema.macros :as sm]
@@ -59,16 +60,19 @@
    [this]
    (log/info "Connecting Client Socket to: "
              (with-out-str (pprint  url))
-             ("\nout of:"
-              (with-out-str (pprint this))))
+             "\nout of:"
+             (with-out-str (pprint this)))
    (try
      (let [sock (mq/socket (:context context) :dealer)
-           url (build-url url)]
+           real-url (build-url (:uri url))]
        (try
-         (mq/connect sock)
+         (mq/connect sock real-url)
          (catch RuntimeException ex
            (raise [:client-socket-connection-error
-                   :reason ex])))
+                   {:reason ex
+                    :details this
+                    :url real-url
+                    :socket sock}])))
        (assoc this :socket sock))
      (catch RuntimeException ex
        (log/error ex)
@@ -76,7 +80,7 @@
                {:reason ex}]))))
   (stop
    [this]
-   (mq/disconnect socket (build-url url))
+   (mq/disconnect socket (build-url (:uri url)))
    (mq/set-linger socket 0)
    (mq/close socket)
    (assoc this :socket nil)))
@@ -154,6 +158,7 @@ meat."
   "This is pretty naive.
 But works for my purposes"
   [{:keys [protocol address port] :as uri} :- URI]
+  (log/info "Building a url based on:\n" (with-out-str (pprint uri)))
   (str protocol "://" address ":" port))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -215,11 +220,13 @@ TODO: formalize that using something like core.contract"
   []
   (map->ClientSocket {}))
 
-(defn new-client-url
-  [{:keys [client-protocol client-address client-port]}]
-  (let [uri (strict-map->URI {:protocol client-protocol
-                              :address client-address
-                              :port client-port})]
+(pc/defnk new-client-url
+  [[:client-url protocol address port]]
+  (let [params {:protocol protocol
+                :address address
+                :port port}
+        uri (strict-map->URI params)]
+    (log/info "Initial client URL: " (with-out-str (pprint params)))
     (strict-map->ClientUrl {:uri uri})))
 
 (defn new-context

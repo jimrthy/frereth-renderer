@@ -19,7 +19,7 @@
   (let [cfg (into (config/defaults) overriding-config-options)]
     (-> (component/system-map
          :channels (comm/new-channels)
-         :client (client/init {})
+         :client (client/init cfg)
          :client-socket (comm/new-client-socket)
          :client-url (comm/new-client-url cfg)
          :context (comm/new-context)
@@ -28,7 +28,8 @@
         
         (component/system-using
          {:channels [:logging]
-          :client-socket [:client-url :context]
+          :client-socket {:url :client-url,
+                          :context :context}
           :client-url [:logging]
           :context [:logging]
           :visualizer [:logging]}))))

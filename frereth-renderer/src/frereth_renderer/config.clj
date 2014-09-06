@@ -7,4 +7,4 @@
 
 (defn defaults
   []
-  (:client-url (client-url)))
+  {:client-url (client-url)})
