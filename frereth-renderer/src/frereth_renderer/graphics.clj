@@ -1,17 +1,37 @@
 (ns frereth-renderer.graphics
+  (:refer-clojure :exclude [run!])
   (:require [clojure.core.async :as async]
             [clojure.pprint :refer (pprint)]
+            [com.stuartsierra.component :as component]
             [frereth-renderer.fsm :as fsm]
-            [penumbra.app :as app]
-            [penumbra.app.core :as core]
-            [penumbra.opengl :as gl]
-            [taoensso.timbre :as log])
-  (:use ribol.core)
-  (:gen-class))
+            #_[penumbra.app :as app]
+            #_[penumbra.app.core :as core]
+            #_[penumbra.opengl :as gl]
+            [play-clj.core :as play-clj]
+            [play-clj.g2d :as g2d]
+            [play-clj.g3d :as g3d]
+            [play-clj.math :as math]
+            [play-clj.ui :as ui]
+            [ribol.core :refer (manage on raise)]
+            [taoensso.timbre :as log]))
 
 ;;;; FIXME: This namespace is getting too big. How much can I split out
 ;;;; into smaller pieces?
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Schema
+
+(defrecord Visualizer [channel]
+  component/Lifecycle
+  (start
+    [this]
+    (assoc this :channel (async/chan)))
+  (stop
+    [this]
+    (async/close! channel)
+    (assoc this :channel nil)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Information
 ;;; This doesn't actually belong here
 
@@ -19,7 +39,7 @@
   "What's available?
 Note that penumbra has a get-version that returns a float version of the same value."
   []
-  (gl/get-string :version))
+  (play-clj/gl :gl-version))
 
 ;;; Initialization
 
@@ -50,7 +70,8 @@ that there's just too much going on in here."
      (configure-windowing {}))
   ([params]
      (log/trace "Configuring the Window. Params:\n" params)
-     (app/vsync! true)
+     (comment (app/vsync! true))
+
      ;; I don't want to do this!!
      ;; Each client/world needs to set up its own viewing matrix.
      ;; Until I get to that point, I need a basic sample idea that
@@ -59,9 +80,10 @@ that there's just too much going on in here."
      ;; This doesn't seem to make any actual difference. As a bonus,
      ;; closing the window on Windows doesn't actually work. I'm
      ;; not getting any feedback about the error, either.
-     (gl/clear-color 0.5 0.0 0.5 0.0)
-     (gl/frustum-view 60.0 (/ (double 4) 3) 1.0 100.0)
-     (gl/load-identity)
+     (comment (gl/clear-color 0.5 0.0 0.5 0.0)
+              (gl/frustum-view 60.0 (/ (double 4) 3) 1.0 100.0)
+              (gl/load-identity))
+     (raise :not-implemented)
 
      params))
 
@@ -82,8 +104,9 @@ never gets called."
   ;; It really needs to be set for whichever window is currently active.
   ;; But it's a start.
   ;; Besides...this is the vast majority of what init-gl was doing for starters.
-  (gl/frustum-view 60.0 (/ (double w) h) 1.0 100.0)
-  (gl/load-identity)
+  (comment (gl/frustum-view 60.0 (/ (double w) h) 1.0 100.0)
+           (gl/load-identity))
+  (raise :not-implemented)
   state)
 
 ;;; Q: Do I really want to send this sort of low-level communication to
@@ -172,21 +195,22 @@ State:\n" state)]
 This makes that happen"
   [visual-details]
   (log/info "Kicking off penumbra window")
-  (app/start
-   {:close close
-    :display display
-    :init configure-windowing
-    :key-press key-press
-    :key-release key-release
-    :key-type key-type
-    :mouse-click mouse-click
-    :mouse-down mouse-down
-    :mouse-drag mouse-drag
-    :mouse-move mouse-move
-    :mouse-up mouse-up
-    :reshape reshape
-    :update update}
-   visual-details))
+  (raise :not-implemented)
+  (comment (app/start
+            {:close close
+             :display display
+             :init configure-windowing
+             :key-press key-press
+             :key-release key-release
+             :key-type key-type
+             :mouse-click mouse-click
+             :mouse-down mouse-down
+             :mouse-drag mouse-drag
+             :mouse-move mouse-move
+             :mouse-up mouse-up
+             :reshape reshape
+             :update update}
+            visual-details)))
 
 (defn begin-communications
   " Actually updating things isn't as interesting [at first] or [quite]
@@ -267,12 +291,6 @@ State: " state "\nMessaging: " (:messaging state)
       {:communications communications-thread
        :graphics eye-candy-thread})))
 
-(defn init []
-  (let [system-state (init-fsm)]
-    (log/info "Initial FSM state: " system-state)
-    {:renderer nil
-     :fsm system-state}))
-
 ;; Don't want to declare this here. Really shouldn't be calling it directly
 ;; at all. Honestly, need something like a var that I can override with
 ;; the current view.
@@ -324,13 +342,7 @@ Kicking off the fsm. Original agent:\n" (:fsm graphics)
 (defn stop [universe]
   ;; FIXME: Is there anything I can do here?
   ;; (That's a pretty vital requirement)
-  (into universe
-        ;; Very tempting to close the window. Actually,
-        ;; really must do that if I want to reclaim resources
-        ;; so I can reset them.
-        ;; That means expanding penumbra's API.
-        ;; TODO: Make that happen.
-        (fsm/stop (-> universe :graphics :fsm)))
+  
   ;; FIXME: It would be much better to pass in the actual window(s)
   ;; that I want to destroy.
   ;; Then again, that may be totally pointless until/if lwjgl
@@ -340,7 +352,13 @@ Kicking off the fsm. Original agent:\n" (:fsm graphics)
   ;; I don't think I want this.
   ;; TODO: The app has a :destroy! key that points to a function
   ;; that looks suspiciously as though it's what I actually want.
-  (core/destroy! universe))
+  (comment (core/destroy! (into universe
+                                ;; Very tempting to close the window. Actually,
+                                ;; really must do that if I want to reclaim resources
+                                ;; so I can reset them.
+                                ;; That means expanding penumbra's API.
+                                ;; TODO: Make that happen.
+                                (fsm/stop (-> universe :graphics :fsm))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
@@ -361,16 +379,18 @@ Kicking off the fsm. Original agent:\n" (:fsm graphics)
   (let [w2 (/ width 2.0)
         h2 (/ height 2.0)]
     ;;(gl/translate w2 h2 0)
-    (gl/translate 0 -1.5 -3)
-    (gl/rotate angle 0 0 1)
-    (gl/scale 2 2 1)
-    (gl/draw-triangles (drawer))))
+    (comment (gl/translate 0 -1.5 -3)
+             (gl/rotate angle 0 0 1)
+             (gl/scale 2 2 1)
+             (gl/draw-triangles (drawer)))
+    (raise :not-implemented)))
 
 (defn draw-colored-vertex 
   [color vertex]
   (comment (log/trace "Drawing a " color " vertex at " vertex))
-  (gl/color (color 0) (color 1) (color 2))
-  (gl/vertex (vertex 0) (vertex 1)))
+  (comment (gl/color (color 0) (color 1) (color 2))
+           (gl/vertex (vertex 0) (vertex 1)))
+  (raise :not-implemented))
 
 (defn draw-multi-colored-triangle
   [[color1 color2 color3] [vertex1 vertex2 vertex3]]
@@ -399,7 +419,7 @@ Kicking off the fsm. Original agent:\n" (:fsm graphics)
      (fsm/current-state (:fsm state))))
 
 (defmethod draw :__dead[params]
-  "Initializing...absolutely nothing interesting has happened yet"
+  ;; Initializing...absolutely nothing interesting has happened yet
   [params]
   ;; FIXME: Fill the screen with whitespace, or something vaguely
   ;; interesting
@@ -407,8 +427,8 @@ Kicking off the fsm. Original agent:\n" (:fsm graphics)
   (draw-splash-triangle params 0.5))
 
 (defmethod draw :disconnected [params]
-  "Rendering subsystem is up and ready to go. Waiting to hear from the client."
   [params]
+  ;; Rendering subsystem is up and ready to go. Waiting to hear from the client.
   (comment (log/trace "draw-initial-splash"))
   (draw-splash-triangle params 1.0))
 
@@ -420,14 +440,14 @@ Kicking off the fsm. Original agent:\n" (:fsm graphics)
     (draw-splash-triangle params intensity)))
 
 (defmethod draw :waiting-for-server [params]
-  "Have connected to the client. Waiting to hear back from the server"
   [params]
+  ;; Have connected to the client. Waiting to hear back from the server
   (draw-secondary-splash params))
 
 (defmethod draw :server-connected [params]
-  "Client's connected to the server. Just waiting for the handshake to
-finish so we can start drawing whatever the server wants."
   [params]
+  ;; Client's connected to the server. Just waiting for the handshake to
+  ;; finish so we can start drawing whatever the server wants.
   (draw-secondary-splash (into params
                                {:angle (* (:angle params) 2)})))
 
@@ -536,7 +556,7 @@ I'm trying to remember/figure out how all the pieces fit together."
         (log/error (str error ": " params)))
     (catch RuntimeException e
       (log/error e)
-      (throw))
+      (raise [:normal-update-failure {:reason e}]))
     (catch Exception e
       ;; I'm very strongly inclined to catch absolutely
       ;; anything that went wrong here and just log/swallow
@@ -547,7 +567,7 @@ I'm trying to remember/figure out how all the pieces fit together."
       ;; Which really means low-level hardware issues.
       ;; Those probably do need to bubble up.
       (log/error e)
-      (throw)))
+      (raise [:unexpected-update-failure {:reason e}])))
   ;; TODO: This almost definitely needs to return the updated state.
   ;; I'm guessing that the error handling is ruining that.
   )
@@ -641,4 +661,11 @@ should be called."
             :state state
             :message "Missing FSM atom??"}))
   (draw state)
-  (app/repaint!))
+  (comment (app/repaint!)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Public
+
+(defn new-visualizer
+  []
+  (map->Visualizer {}))

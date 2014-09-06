@@ -32,32 +32,38 @@ java.library.path and that's good enough."
 
   ;; Big swaths of these are only needed because I haven't found the time
   ;; to properly configure my local maven repo.
-  :dependencies [[byte-transforms "0.1.1"]
-                 [com.taoensso/timbre "2.7.1"]
-                 [im.chit/ribol "0.3.3"]
-                 [jimrthy/penumbra "0.6.6-SNAPSHOT"]
-                 [kephale/cantor "0.4.1"] ; Deprecated math optimization library
-                 [kephale/lwjgl "2.9.0"]
-                 [kephale/lwjgl-natives "2.9.0"]
-                 [kephale/lwjgl-util "2.9.0"]
-                 [org.clojars.jimrthy/cljeromq "0.1.0-SNAPSHOT"]
-                 [org.clojure/clojure "1.5.1"]
-                 [org.clojure/core.async "0.1.267.0-0d7780-alpha"]
+  :dependencies [[byte-transforms "0.1.3"]
+                 [com.badlogicgames.gdx/gdx "1.3.1"]
+                 [com.badlogicgames.gdx/gdx-backend-lwjgl "1.3.1"]
+                 [com.badlogicgames.gdx/gdx-box2d "1.3.1"]
+                 [com.badlogicgames.gdx/gdx-box2d-platform "1.3.1"
+                  :classifier "natives-desktop"]
+                 [com.badlogicgames.gdx/gdx-bullet "1.3.1"]
+                 [com.badlogicgames.gdx/gdx-bullet-platform "1.3.1"
+                  :classifier "natives-desktop"]
+                 [com.badlogicgames.gdx/gdx-platform "1.3.1"
+                  :classifier "natives-desktop"]
+                 [com.cemerick/pomegranate "0.3.0"]
+                 [com.stuartsierra/component "0.2.1"]
+                 [com.taoensso/timbre "3.2.1"]
+                 [frereth-client "0.1.0-SNAPSHOT"]
+                 [im.chit/ribol "0.4.0"]
+                 ;;[jimrthy/cljeromq "0.1.0-SNAPSHOT"]
+                 ;;[jimrthy/penumbra "0.6.6-SNAPSHOT"]
+                 ;;[kephale/cantor "0.4.1"] ; Deprecated math optimization library
+                 ;;[kephale/lwjgl "2.9.0"]
+                 ;;[kephale/lwjgl-natives "2.9.0"]
+                 ;;[kephale/lwjgl-util "2.9.0"]
+                 [org.clojure/clojure "1.6.0"]  ; 1.7 breaks play-clj
+                 [org.clojure/core.async "0.1.338.0-5c5012-alpha"]
                  [org.clojure/core.contracts "0.0.5"]
                  ;; TODO: What is this?
                  [org.clojure/math.combinatorics "0.0.7"]
-                 ;; 0mq is at 4.0.3, while jeromq is only at 3.2.2.
-                 ;; This is pretty vital for security considerations,
-                 ;; though those aren't so much an issue for this particular
-                 ;; layer.
-                 ;; TODO: Switch back to using the native java bindings.
-                 ;; Not that those currently support security either.
-                 ;; FWIW, I'm working on it.
-                 [org.jeromq/jeromq "0.3.0-SNAPSHOT"]
-                 ;; TODO: 0.1.4 has been released. Get this updated to match!
-                 [org.zeromq/cljzmq "0.1.1" :exclusions [org.zeromq/jzmq]]
+                 [org.zeromq/cljzmq "0.1.4"]
+                 [play-clj "0.3.10"]
                  ;; TODO: An nrepl client?
-
+                 [prismatic/plumbing "0.3.3"]
+                 [prismatic/schema "0.2.6"]
 
                  ;; FIXME: Is this more appropriate here or in frereth-client?
                  ;; Is it worth an external dependency at all? Especially since
@@ -68,31 +74,30 @@ java.library.path and that's good enough."
                  ;; it most likely implies a missing dependency in
                  ;; penumbra.
                  ;; TODO: Figure out where this actually belongs.
-                 [slick-util "1.0.0"]]
+                 ;;[slick-util "1.0.0"]
+                 ]
   :documentation {:files {"basics" {:input "test/docs/basics.clj"
                                     :title "Basics"
                                     :sub-title "Wrapping my head around this idea"
                                     :author "James Gatannah"
                                     :email "james@frereth.com"}}}
-  ;; Needed to get to lwjgl native libs...is this still true w/ penumbra?
-  ;; Actually, since leiningen 2.1.0, probably not. This next entry seems
-  ;; to be totally obsolete.
-  :jvm-opts [~(str "-Djava.library.path=native/:"
+  :jvm-opts [~(str "-Djava.library.path=native/:/usr/local/lib:"
                    (System/getProperty "java.library.path"))]
   :main frereth-renderer.core
 
   :profiles {:uberjar {:aot :all}
              :dev {:source-paths ["dev"]
-                   :dependencies  [[midje "1.6.0"]
-                                   [org.clojure/tools.namespace "0.2.4"]
-                                   [org.clojure/java.classpath "0.2.1"]
-                                   [ritz/ritz-debugger "0.7.0"]]
-                   :injections [(require 'clojure.pprint)]}}
+                   :dependencies  [[clj-ns-browser "1.3.1"]
+                                   [midje "1.6.3"]
+                                   [org.clojure/tools.namespace "0.2.5"]
+                                   [org.clojure/java.classpath "0.2.2"]
+                                   ;; Umm...do I really not want this for
+                                   ;; real??
+                                   [org.clojure/tools.logging "0.2.6"]]}}
   :repl-options {:init-ns user}
   ;; FIXME: these are both experimental repos and should go away.
   ;; One was needed for core.async.
   ;; I think the other's for jeromq.
+  ;; TODO: Make them go away and see what breaks
   :repositories {"sonatype-oss-public" "https://oss.sonatype.org/content/groups/public/"
-                 "sonatype-nexus-snapshots" "https://oss.sonatype.org/content/repositories/snapshots"
-		 ;"local" "file:/cygdrive/c/Users/James-PC/.m2"
-                 })
+                 "sonatype-nexus-snapshots" "https://oss.sonatype.org/content/repositories/snapshots"})

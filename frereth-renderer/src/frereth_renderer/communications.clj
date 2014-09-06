@@ -1,12 +1,94 @@
 (ns frereth-renderer.communications
-  (:require [cljeromq.constants :as mqk]
-            [cljeromq.core :as mq]
-            [clojure.core.async :as async]
-            [ribol.core :refer :all]
-            [taoensso.timbre :as log])
-  (:gen-class))
+(:require [clojure.core.async :as async]
+          [clojure.pprint :refer (pprint)]
+          [com.stuartsierra.component :as component]
+          [plumbing.core :as pc]
+          [ribol.core :refer :all]  ; TODO: Never refer :all
+          [schema.core :as s]
+          [schema.macros :as sm]
+          [taoensso.timbre :as log]
+          [zeromq.zmq :as mq])
+(:gen-class))
 
 (set! *warn-on-reflection* true)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Schema
+
+(defrecord Channels [ui uo cmd]
+component/Lifecycle
+(start
+  [this]
+  (into this {:ui (async/chan)
+              :uo (async/chan)
+              :cmd (async/chan)}))
+(stop
+  [this]
+  (doseq [c [ui uo cmd]]
+    (when c
+      (async/close! c)))
+  (into this {:ui nil
+              :uo nil
+              :cmd nil})))
+
+(defrecord Context [context]
+component/Lifecycle
+(start
+  [this]
+  (assoc this :context (mq/context 1)))
+(stop
+  [this]
+  (.close (:context this))
+  (assoc this :context nil)))
+
+(sm/defrecord URI [protocol :- s/Str
+                address :- s/Str
+                port :- s/Int]
+component/Lifecycle
+(start [this] this)
+(stop [this] this))
+
+(sm/defrecord ClientUrl [uri :- URI]
+component/Lifecycle
+(start [this] this)
+(stop [this] this))
+
+(declare build-url)
+(sm/defrecord ClientSocket [context :- Context
+                          socket
+                          url :- ClientUrl]
+component/Lifecycle
+(start
+  [this]
+  (log/info "Connecting Client Socket to: "
+            (with-out-str (pprint  url))
+            "\nout of:"
+            (with-out-str (pprint this)))
+  (try
+    (let [sock (mq/socket (:context context) :dealer)
+          real-url (build-url (:uri url))]
+      (try
+        (mq/connect sock real-url)
+        (catch RuntimeException ex
+          (raise [:client-socket-connection-error
+                  {:reason ex
+                  :details this
+                  :url real-url
+                  :socket sock}])))
+      (assoc this :socket sock))
+    (catch RuntimeException ex
+      (log/error ex)
+      (raise [:client-socket-creation-failure
+              {:reason ex}]))))
+(stop
+  [this]
+  (mq/disconnect socket (build-url (:uri url)))
+  (mq/set-linger socket 0)
+  (mq/close socket)
+  (assoc this :socket nil)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Utilities
 
 (defn client->ui-hand-shake
   "This is really the response part of the handshake that was initiated
@@ -27,8 +109,8 @@ I try to handle edge cases."
 
 (defn client->ui-loop [reader-sock ->ui cmd r->w w->r]
   ;; TODO: I really want to manage these exceptions right here, if at all possible.
-  (raise-on [NullPointerException :zmq-npe]
-            [Throwable :unknown]
+  (raise-on [NullPointerException :zmq-npe
+             Throwable :unknown]
             (loop []
               ;; The vast majority of the time, this should be throwing
               ;; an Again exception.
@@ -121,7 +203,8 @@ Need to handle this.")))
         ))
     (recur (async/timeout 60))))
 
-(defn ui->client [ctx from-ui cmd r->w w->r]
+(defn ui->client
+[ctx from-ui cmd r->w w->r]
   ;; Push user events to the client to forward along to the server(s)
   ;; Using a REQ socket here seems at least a little dubious. The alternatives
   ;; that spring to mind seem worse. I send input to the Client over this channel,
@@ -154,7 +237,8 @@ that's relaying messages from the server.
 Gets more complicated when we start talking about multiple servers, but that's
 YAGNI for this version.
 
-This is turning out to be a lot trickier than it looked at first."
+This should be low-hanging fruit, but it's actually looking like some pretty hefty
+meat."
   [ctx from-ui to-ui cmd]  
   (let [ ;; read/write threads really need the capability to communicate
         r->w (async/chan)
@@ -165,30 +249,41 @@ This is turning out to be a lot trickier than it looked at first."
     {:ui->client writer-thread
      :client->ui reader-thread}))
 
-(defn init
-  []
-  (atom nil))
+(sm/defn build-url
+  "This is pretty naive.
+But works for my purposes"
+  [{:keys [protocol address port] :as uri} :- URI]
+  (log/info "Building a url based on:\n" (with-out-str (pprint uri)))
+  (str protocol "://" address ":" port))
 
-(defn start
-  "N.B. dead-world is an atom.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Obsolete (mostly)
+
+(comment (defn start
+           "N.B. dead-world is an atom.
 TODO: formalize that using something like core.contract"
-  [dead-world]
+           [dead-world]
   (log/info "Performing side effects to start Communications system")
   ;; TODO: It actually might make some sort of sense to have multiple
   ;; threads involved here (instead of just 1).
   ;; Honestly, that doesn't seem very likely.
-  (let [ctx (mq/context 1)
-        ;; Seems obvious to start building sockets here.
-        ;; That would be a horrible mistake.
-        ;; Sockets aren't thread safe, and everything they're doing
-        ;; really needs to happen in a background thread
-        ui (async/chan) ; user input -> client (aka Input)
-        uo (async/chan) ; client -> graphics (aka Output)
+           (let [ctx (mq/context 1)
+                 ;; Q: what kind of socket makes sense here?
+                 ;; A: None, really. Since sockets aren't thread safe.
+                                        ;socket (mq/socket ctx :router)
+                 ui (async/chan)              ; user input -> client (aka Input)
+                 uo (async/chan)              ; client -> graphics (aka Output)
         command (async/chan) ; internal messaging (e.g. :exit)
         ;; Need an async channel that uses this socket
         ;; to communicate back and forth with the graphics namespace
         ;; to actually implement the UI.
-        coupling (couple ctx ui uo command)]
+        ]
+             ;; FIXME: Do I want into, merge, or something totally different?
+             ;; FIXME: Whichever. Need an async channel that uses this socket
+             ;; to communicate back and forth with the graphics namespace
+             ;; to actually implement the UI.
+             (couple ctx ui uo command)
+
     (log/info "Communications side effects finished: continuing")
     (reset! dead-world {:context ctx
                         ;; Output to Client
@@ -203,8 +298,8 @@ TODO: formalize that using something like core.contract"
                         ;; where everything interesting is happening
                         :coupling coupling})))
 
-(defn stop!
-  [live-world]
+(comment (defn stop!
+           [live-world]
   (log/info "Stopping communications system")
   (if-let [cmd (:command live-world)]
     (do
@@ -258,3 +353,27 @@ TODO: formalize that using something like core.contract"
   ;; Should really return a map of the moldering remains.
   ;; Q: But why bother?
   (init))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Public
+
+(defn new-channels
+  []
+  (map->Channels {}))
+
+(defn new-client-socket
+  []
+  (map->ClientSocket {}))
+
+(pc/defnk new-client-url
+  [[:client-url protocol address port]]
+  (let [params {:protocol protocol
+                :address address
+                :port port}
+        uri (strict-map->URI params)]
+    (log/info "Initial client URL: " (with-out-str (pprint params)))
+    (strict-map->ClientUrl {:uri uri})))
+
+(defn new-context
+  []
+  (map->Context {}))

@@ -2,8 +2,8 @@
   (:require [clojure.core.async :as async]
             [clojure.core.contracts :as contract]
             [clojure.pprint :refer (pprint)]
+            [ribol.core :refer (manage raise)]
             [taoensso.timbre :as log])
-  (:use ribol.core)
   (:gen-class))
 
 ;;; It's very tempting to turn this entire thing into a
@@ -80,7 +80,7 @@ OTOH...it can be extremely convenient"
       (log/error "Broken FSM transition: trying to send '"
              (str transition-key) "' to\n'" (str fsm) "'")
       ;; This definitely falls in the category of "fail early"
-      (throw))))
+      (raise [:bad-fsm-transition {:reason ex}]))))
 
 (def start!
   (contract/with-constraints

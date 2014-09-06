@@ -1,6 +1,7 @@
 (ns frereth-renderer.core
   (:require [clojure.core.async :as async]
-   [frereth-renderer.graphics :as graphics]
+            [com.stuartsierra.component :as component]
+            [frereth-renderer.graphics :as graphics]
             [frereth-renderer.system :as sys]
             [taoensso.timbre :as log])
   (:gen-class))
@@ -8,8 +9,8 @@
 (defn -main
   "Theoretically, this is the entry point where everything interesting should start."
   [& args]
-  (let [dead-world (sys/init)
-        world (sys/start dead-world)]
+  (let [dead-world (sys/init {})
+        world (component/start dead-world)]
     (try
       ;; Wait for this to exit.
       ;; This approach seems horribly wrong.
@@ -32,4 +33,4 @@
       ;; Then clean up
       ;; I'm getting here almost instantly. Meaning that front-end
       ;; apparently isn't getting set to anything that seems reasonable.
-      (finally (sys/stop world)))))
+      (finally (component/stop world)))))

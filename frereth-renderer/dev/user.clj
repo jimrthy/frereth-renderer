@@ -1,54 +1,19 @@
-(ns user
-  (:require [clojure.java.io :as io]
-            [clojure.inspector :as i]
-            [clojure.string :as str]
-            [clojure.pprint :refer (pprint)]
-            [clojure.repl :refer :all]
-            [clojure.test :as test]
-            [clojure.tools.namespace.repl :refer (refresh refresh-all)]
-            [frereth-renderer.communications :as comm]
-            [frereth-renderer.graphics :as graphics]
-            [frereth-renderer.system :as system]))
+(ns user)
 
-(def system nil)
-(set! *print-length* 50)
+;; This is an old trick from Pedestal. When system.clj doesn't compile,
+;; it can prevent the REPL from starting, which makes debugging very
+;; difficult. This extra step ensures the REPL starts, no matter what.
 
-(defn init
-  "Constructs the current development system."
+(defn dev
   []
-  (alter-var-root #'system
-    (constantly (system/init))))
+  (require 'dev)
+  (in-ns 'dev))
 
-(defn start
-  "Starts the current development system."
+
+(defn go
   []
-  (alter-var-root #'system system/start))
+  (println "Don't you mean (dev) ?"))
 
-(defn stop
-  "Shuts down and destroys the current development system."
+(defn reset
   []
-  (alter-var-root #'system
-    (fn [s] (when s (system/stop s)))))
-
-(defn go-go
-  "Initializes the current development system and starts it running.
-Can't just call this go: that conflicts with a macro from core.async."
-  []
-  (println "Initializing system")
-  (init)
-  (println "Restarting system")
-  (start))
-
-(defn reset []
-  (println "Stopping")
-  (stop)
-  (println "Refreshing namespaces")
-  ;; This pulls up a window (in the current thread) which leaves
-  ;; emacs unusable. Get it at least not dying instantly from lein run,
-  ;; then make this play nicely with the main window in a background
-  ;; thread.
-  ;; Which doesn't really work at all on a Mac: more impetus than
-  ;; ever to get a REPL working there internally.
-  ;; But I don't need it yet.
-  (comment (throw (RuntimeException. "Currently broken")))
-  (refresh :after 'user/go-go))
+  (println "Yep. You mean (dev)"))
