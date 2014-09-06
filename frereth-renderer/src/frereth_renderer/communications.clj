@@ -36,7 +36,7 @@
     (assoc this :context (mq/context 1)))
   (stop
     [this]
-    (mq/close (:context this))
+    (.close (:context this))
     (assoc this :context nil)))
 
 (sm/defrecord URI [protocol :- s/Str
@@ -45,13 +45,13 @@
   component/Lifecycle
   (start [this] this)
   (stop [this] this))
-(declare build-url)
 
 (sm/defrecord ClientUrl [uri :- URI]
   component/Lifecycle
   (start [this] this)
   (stop [this] this))
 
+(declare build-url)
 (sm/defrecord ClientSocket [context :- Context
                            socket
                            url :- ClientUrl]

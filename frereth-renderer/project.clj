@@ -43,6 +43,7 @@ java.library.path and that's good enough."
                   :classifier "natives-desktop"]
                  [com.badlogicgames.gdx/gdx-platform "1.3.1"
                   :classifier "natives-desktop"]
+                 [com.cemerick/pomegranate "0.3.0"]
                  [com.stuartsierra/component "0.2.1"]
                  [com.taoensso/timbre "3.2.1"]
                  [frereth-client "0.1.0-SNAPSHOT"]
