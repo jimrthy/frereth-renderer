@@ -58,6 +58,7 @@ java.library.path and that's good enough."
                  [org.clojure/core.async "0.1.338.0-5c5012-alpha"]
                  [org.clojure/core.contracts "0.0.5"]
                  [org.clojure/math.combinatorics "0.0.7"]
+                 [org.flatland/useful "0.11.2"]
                  [org.zeromq/cljzmq "0.1.4"]
                  [play-clj "0.3.10"]
                  ;; TODO: An nrepl client?
