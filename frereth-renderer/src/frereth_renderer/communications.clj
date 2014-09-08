@@ -1,14 +1,15 @@
 (ns frereth-renderer.communications
-(:require [clojure.core.async :as async]
-          [clojure.pprint :refer (pprint)]
-          [com.stuartsierra.component :as component]
-          [plumbing.core :as pc]
-          [ribol.core :refer :all]  ; TODO: Never refer :all
-          [schema.core :as s]
-          [schema.macros :as sm]
-          [taoensso.timbre :as log]
-          [zeromq.zmq :as mq])
-(:gen-class))
+  (:require [clojure.core.async :as async]
+            [clojure.pprint :refer (pprint)]
+            [com.stuartsierra.component :as component]
+            [plumbing.core :as pc]
+            [ribol.core :refer (escalate manage on raise raise-on)]
+            [schema.core :as s]
+            [schema.macros :as sm]
+            [taoensso.timbre :as log]
+            [zeromq.zmq :as mq])
+  (:import [org.zeromq ZMQ$Context])
+  (:gen-class))
 
 (set! *warn-on-reflection* true)
 
@@ -16,76 +17,76 @@
 ;;; Schema
 
 (defrecord Channels [ui uo cmd]
-component/Lifecycle
-(start
-  [this]
-  (into this {:ui (async/chan)
-              :uo (async/chan)
-              :cmd (async/chan)}))
-(stop
-  [this]
-  (doseq [c [ui uo cmd]]
-    (when c
-      (async/close! c)))
-  (into this {:ui nil
-              :uo nil
-              :cmd nil})))
+  component/Lifecycle
+  (start
+    [this]
+    (into this {:ui (async/chan)
+                :uo (async/chan)
+                :cmd (async/chan)}))
+  (stop
+    [this]
+    (doseq [c [ui uo cmd]]
+      (when c
+        (async/close! c)))
+    (into this {:ui nil
+                :uo nil
+                :cmd nil})))
 
-(defrecord Context [context]
-component/Lifecycle
-(start
-  [this]
-  (assoc this :context (mq/context 1)))
-(stop
-  [this]
-  (.close (:context this))
-  (assoc this :context nil)))
+(sm/defrecord Context [context :- ZMQ$Context]
+  component/Lifecycle
+  (start
+    [this]
+    (assoc this :context (mq/context 1)))
+  (stop
+    [this]
+    (.close (:context this))  ; TODO: Getting a compiler warning about reflection
+    (assoc this :context nil)))
 
 (sm/defrecord URI [protocol :- s/Str
                 address :- s/Str
                 port :- s/Int]
-component/Lifecycle
-(start [this] this)
-(stop [this] this))
+  component/Lifecycle
+  (start [this] this)
+  (stop [this] this))
 
 (sm/defrecord ClientUrl [uri :- URI]
-component/Lifecycle
-(start [this] this)
-(stop [this] this))
+  component/Lifecycle
+  (start [this] this)
+  (stop [this] this))
 
 (declare build-url)
 (sm/defrecord ClientSocket [context :- Context
-                          socket
-                          url :- ClientUrl]
-component/Lifecycle
-(start
-  [this]
-  (log/info "Connecting Client Socket to: "
-            (with-out-str (pprint  url))
-            "\nout of:"
-            (with-out-str (pprint this)))
-  (try
-    (let [sock (mq/socket (:context context) :dealer)
-          real-url (build-url (:uri url))]
-      (try
-        (mq/connect sock real-url)
-        (catch RuntimeException ex
-          (raise [:client-socket-connection-error
-                  {:reason ex
-                  :details this
-                  :url real-url
-                  :socket sock}])))
-      (assoc this :socket sock))
-    (catch RuntimeException ex
-      (log/error ex)
-      (raise [:client-socket-creation-failure
-              {:reason ex}]))))
-(stop
-  [this]
-  (mq/disconnect socket (build-url (:uri url)))
-  (mq/set-linger socket 0)
-  (mq/close socket)
-  (assoc this :socket nil)))
+                            socket
+                            url :- ClientUrl]
+  component/Lifecycle
+  (start
+   [this]
+   (log/info "Connecting Client Socket to: "
+             (with-out-str (pprint  url))
+             "\nout of:"
+             (with-out-str (pprint this)))
+   (try
+     (let [sock (mq/socket (:context context) :dealer)
+           real-url (build-url (:uri url))]
+       (try
+         (mq/connect sock real-url)
+         (catch RuntimeException ex
+           (raise [:client-socket-connection-error
+                   {:reason ex
+                    :details this
+                    :url real-url
+                    :socket sock}])))
+       (assoc this :socket sock))
+     (catch RuntimeException ex
+       (log/error ex)
+       (raise [:client-socket-creation-failure
+               {:reason ex}]))))
+  (stop
+   [this]
+   (mq/disconnect socket (build-url (:uri url)))
+   (mq/set-linger socket 0)
+   (mq/close socket)
+   (assoc this :socket nil)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Utilities
@@ -102,7 +103,7 @@ Of course, that approach is dumb on the client side: it really needs to deal
 with timeouts, exit messages, etc. But I need something basic working before
 I try to handle edge cases."
   [sock]
-  (let [msg (mq/recv sock)]
+  (let [msg (mq/receive sock)]
     ;; TODO: Really should verify that messages contents. For details like
     ;; protocol, version, etc.
     (mq/send sock :PONG)))
@@ -117,7 +118,7 @@ I try to handle edge cases."
               ;; Realistically, should be doing a Poll instead of a Read.
               ;; Or maybe a Read w/ a timeout.
               ;; Q: how's the language wrapper set up?
-              (let [msg (mq/recv reader-sock (-> mqk/const :control :dont-wait))]
+              (let [msg (mq/receive reader-sock :dont-wait)]
                 (when msg
                   (raise-on [Exception :async-fail]
                             ;; This is really happening inside a go block. Who cares?
@@ -152,16 +153,20 @@ cmd is the command/control channel that lets us know when it's time to quit."
    ;; into encrypted sockets and white-list auth.
    ;; Of course, it's also for remote clients/renderers. Which is definitely
    ;; a "future version" feature.
-   (mq/with-randomly-bound-socket [reader-sock port
-                                   ctx :rep
-                                   "tcp://127.0.0.1"]
+   (let [socket (mq/socket ctx :rep)
+         ;; TODO: This really needs to be * if I'm going to deal
+         ;; with remote clients
+         ;; Or switch to inproc, if that's a different middleware
+         ;; layer sort of thing.
+         ;; Either way, this approach is wrong.
+         port (mq/bind-random-port socket "tcp://127.0.0.1")]
      ;; Let the input thread know which port this is listening on.
      (log/info "Telling the Client to connect on port: " port)
      (async/>!! r->w port)
      (log/debug "Shaking hands with client")
-     (client->ui-hand-shake reader-sock)
+     (client->ui-hand-shake socket)
      (log/info "Entering Read Thread on socket " ->ui)
-     (client->ui-loop reader-sock ->ui cmd))
+     (client->ui-loop socket ->ui cmd))
    (on :zmq-npe [ex]
        ;; Debugging...what makes more sense instead?
        (escalate ex))))
@@ -181,7 +186,7 @@ cmd is the async command channel used to pass control messages into this thread.
         ui-> (do
                (log/debug "UI message for client:\n" v)
                (mq/send ->client v)
-               (let [ack (mq/recv ->client)]
+               (let [ack (mq/receive ->client)]
                  (log/debug ack)))
         r->w (do
                ;; This channel was put in place originally so the 'reader' can tell this
@@ -213,22 +218,30 @@ Need to handle this.")))
   ;; when the communication times out.
   ;; That approach fails in that I need to get *something* working before I
   ;; start worrying about things like error handling.
-  (let [writer-sock (mq/connected-socket ctx :req
-                                         "tcp://127.0.0.1:7842")]
-    (log/debug "Waiting for reader thread to share its port")
-    (let [reader-port (async/<!! r->w)]
-      (log/debug "Pushing HELO to client, listening on port " reader-port)
-      (mq/send-partial writer-sock :helo)
-      ;; Trigger the client to connect to the socket bound in the
-      ;; client->ui thread
-      (mq/send writer-sock reader-port)
-      (log/debug "Client accepted the HELO. Waiting for an ACK...")
-      ;; Getting to here. Values getting horribly mangled in transmission.
-      ;; FIXME: Start here!
-      ;; Wait for the other side of the hand-shake
-      (let [ack (mq/recv writer-sock)]
-        (log/debug (str "Handshake:\n" ack)))
-      (ui->client-loop from-ui cmd writer-sock r->w w->r))))
+  (let [writer-sock (mq/socket ctx :req)
+        url "tcp://127.0.0.1:7842"]  ; TODO: magic strings are evil
+    (try
+      (mq/connect writer-sock url)
+      (try
+        (log/debug "Waiting for reader thread to share its port")
+        (let [reader-port (async/<!! r->w)]
+          (log/debug "Pushing HELO to client, listening on port " reader-port)
+          (mq/send writer-sock ":helo")
+          ;; Trigger the client to connect to the socket bound in the
+          ;; client->ui thread
+          (mq/send writer-sock reader-port)
+          (log/debug "Client accepted the HELO. Waiting for an ACK...")
+          ;; Getting to here. Values getting horribly mangled in transmission.
+          ;; FIXME: Start here!
+          ;; Wait for the other side of the hand-shake
+          (let [ack (mq/receive writer-sock)]
+            (log/debug (str "Handshake:\n" ack)))
+          (ui->client-loop from-ui cmd writer-sock r->w w->r))
+        (finally
+          (mq/disconnect writer-sock url)))
+      (finally 
+        (mq/set-linger writer-sock 0)
+        (mq/close writer-sock)))))
 
 (defn couple
   "Need to read from both the UI (keyboard, mouse, etc) and the client socket
@@ -296,7 +309,7 @@ TODO: formalize that using something like core.contract"
                         :terminator (async/chan)
                         ;; The channel that owns the thread
                         ;; where everything interesting is happening
-                        :coupling coupling})))
+                        :coupling coupling}))))
 
 (comment (defn stop!
            [live-world]
@@ -352,7 +365,7 @@ TODO: formalize that using something like core.contract"
 
   ;; Should really return a map of the moldering remains.
   ;; Q: But why bother?
-  (init))
+  (init)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public

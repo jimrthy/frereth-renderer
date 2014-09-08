@@ -7,18 +7,22 @@
             [frereth-renderer.fsm :as fsm]
             [frereth-renderer.graphics :as graphics]
             [frereth-renderer.logging :as logging]
-            [taoensso.timbre :as log
-             ])
+            [schema.core :as s]
+            [taoensso.timbre :as log])
   (:gen-class))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Schema
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Public
 
 (defn init
   "Generate a dead system"
   [overriding-config-options]
   (set! *warn-on-reflection* true)
   (log/info "INIT")
-
-  {;; Actual socket layer for communicating with the client.
-   :messaging (comm/init)
 
    ;; TODO: Create a "Top Level" window?
    ;; Note: if I decide to go with LWJGL, I should be able
@@ -38,6 +42,7 @@
          :client-url (comm/new-client-url cfg)
          :context (comm/new-context)
          :logging (logging/new)
+         :messaging (comm/init)  ; Q: What was I planning here?
          :visualizer (graphics/new-visualizer))
         
         (component/system-using
