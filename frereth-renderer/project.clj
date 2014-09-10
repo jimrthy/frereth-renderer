@@ -44,7 +44,7 @@ java.library.path and that's good enough."
                  [com.badlogicgames.gdx/gdx-platform "1.3.1"
                   :classifier "natives-desktop"]
                  [com.cemerick/pomegranate "0.3.0"]
-                 [com.stuartsierra/component "0.2.1"]
+                 [com.stuartsierra/component "0.2.2"]
                  [com.taoensso/timbre "3.2.1"]
                  [frereth-client "0.1.0-SNAPSHOT"]
                  [im.chit/ribol "0.4.0"]
@@ -90,7 +90,7 @@ java.library.path and that's good enough."
              :dev {:source-paths ["dev"]
                    :dependencies  [[clj-ns-browser "1.3.1"]
                                    [midje "1.6.3"]
-                                   [org.clojure/tools.namespace "0.2.5"]
+                                   [org.clojure/tools.namespace "0.2.6"]
                                    [org.clojure/java.classpath "0.2.2"]
                                    ;; Umm...do I really not want this for
                                    ;; real??
