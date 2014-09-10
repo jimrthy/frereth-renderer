@@ -18,8 +18,19 @@
   "Constructs the current development system."
   []
   (set! *print-length* 50)
-  (alter-var-root #'system
-    (constantly (system/init {}))))
+  (let [fsm-descr {:disconnected
+                   {:client-connect-without-server [nil :waiting-for-server]
+                    :client-connect-with-server    [nil :waiting-for-home-page]
+                    :client-connect-with-home-page [nil :main-life]}
+                   :waiting-for-server
+                   {:client-disconnect             [nil :disconnected]}
+                   :server-connected
+                   {:waiting-for-home-page         [nil :main-life]
+                    :client-disconnect             [nil :disconnected]}
+                   :main-life
+                   {:client-disconnect             [nil :disconnected]}}]
+    (alter-var-root #'system
+                    (constantly (system/init {:fsm-description fsm-descr})))))
 
 (defn start
   "Starts the current development system."

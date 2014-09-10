@@ -33,4 +33,6 @@
       ;; Then clean up
       ;; I'm getting here almost instantly. Meaning that front-end
       ;; apparently isn't getting set to anything that seems reasonable.
-      (finally (component/stop world)))))
+      (finally
+        (component/stop world)
+        (shutdown-agents)))))

@@ -28,6 +28,8 @@
 
   (stop
     [this]
+    ;; Q: How do I actually disable loggers?
+    (log/warn "Stopping logging...but not really")
     this))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

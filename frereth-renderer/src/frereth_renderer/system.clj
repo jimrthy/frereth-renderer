@@ -41,6 +41,8 @@
          :client-socket (comm/new-client-socket)
          :client-url (comm/new-client-url cfg)
          :context (comm/new-context)
+         :coupling (comm/new-coupling)
+         :fsm (fsm/init {:fsm-description cfg})
          :logging (logging/new)
          :messaging (comm/init)  ; Q: What was I planning here?
          :visualizer (graphics/new-visualizer))
@@ -51,6 +53,7 @@
                           :context :context}
           :client-url [:logging]
           :context [:logging]
+          :coupling [:context :channels]
           :visualizer [:logging]}))))
 
 (comment (defn quit-being-hermit

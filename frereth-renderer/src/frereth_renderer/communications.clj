@@ -16,21 +16,49 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schema
 
-(defrecord Channels [ui uo cmd]
+;; TODO: There has to be a base class that's less implementation-specific
+(sm/defrecord Channels [ui :- clojure.core.async.impl.channels.ManyToManyChannel
+                        uo :- clojure.core.async.impl.channels.ManyToManyChannel
+                        cmd :- clojure.core.async.impl.channels.ManyToManyChannel
+                        terminator :- clojure.core.async.impl.channels.ManyToManyChannel]
   component/Lifecycle
   (start
     [this]
     (into this {:ui (async/chan)
                 :uo (async/chan)
-                :cmd (async/chan)}))
+                :cmd (async/chan)
+                :terminator (async/chan)}))
   (stop
     [this]
-    (doseq [c [ui uo cmd]]
+    (log/info "Stopping communications system")
+    (if cmd
+      (do
+        ;; Do this, to stop both the i/o threads
+        (log/debug "Commanding r/w threads to quit")
+        ;; TODO: Should really count up the threads in the coupler and
+        ;; send one exit message to each.
+        ;; Pretty solidly qualifies as YAGNI.
+        ;; Actually, should send this off to individual r/w threads. With a timeout
+        ;; in case that thread doesn't exist. Except that there doesn't seem to be
+        ;; an equivalent to timeouts when it comes to sending.
+        (async/>!! cmd :exit)
+        (log/debug "First exit command sent")
+        (async/>!! cmd :exit)
+        (log/debug "Second exit command sent")
+        ;; Though it would be cleaner to just close this channel and
+        ;; make them smart enough to understand what that means.
+        ;; TODO: Make that work.
+        (async/close! cmd)
+        (log/debug "Exiting messages sent"))
+      (log/warn "Missing command channel from client"))
+    (doseq [c [ui uo cmd terminator]]
       (when c
         (async/close! c)))
+    (async/>!! terminator :exiting)
     (into this {:ui nil
                 :uo nil
-                :cmd nil})))
+                :cmd nil
+                :terminator nil})))
 
 (sm/defrecord Context [context :- ZMQ$Context]
   component/Lifecycle
@@ -39,8 +67,31 @@
     (assoc this :context (mq/context 1)))
   (stop
     [this]
-    (.close (:context this))  ; TODO: Getting a compiler warning about reflection
+    ;; Do need to make sure the sockets are all closed first.
+    ;; Which seems to mean joining the i/o threads in :coupling
+    (.close (:context this))  ; TODO: Getting a compiler warning about reflection ??
     (assoc this :context nil)))
+
+(declare couple)
+(sm/defrecord Coupling [coupling
+                        context :- Context
+                        channels :- Channels]
+  component/Lifecycle
+  (start
+   [this]
+   ;; Need an async channel that uses this socket
+   ;; to communicate back and forth with the graphics namespace
+   ;; to actually implement the UI.
+   ;; This is what I've come up with so far
+   (assoc this :coupling (couple (:context context)
+                                 (:ui channels)
+                                 (:uo channels)
+                                 (:cmd channels))))
+  (stop
+   [this]
+   (into this {:coupling nil
+               :context nil
+               :channels nil})))
 
 (sm/defrecord URI [protocol :- s/Str
                 address :- s/Str
@@ -270,104 +321,6 @@ But works for my purposes"
   (str protocol "://" address ":" port))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Obsolete (mostly)
-
-(comment (defn start
-           "N.B. dead-world is an atom.
-TODO: formalize that using something like core.contract"
-           [dead-world]
-  (log/info "Performing side effects to start Communications system")
-  ;; TODO: It actually might make some sort of sense to have multiple
-  ;; threads involved here (instead of just 1).
-  ;; Honestly, that doesn't seem very likely.
-           (let [ctx (mq/context 1)
-                 ;; Q: what kind of socket makes sense here?
-                 ;; A: None, really. Since sockets aren't thread safe.
-                                        ;socket (mq/socket ctx :router)
-                 ui (async/chan)              ; user input -> client (aka Input)
-                 uo (async/chan)              ; client -> graphics (aka Output)
-        command (async/chan) ; internal messaging (e.g. :exit)
-        ;; Need an async channel that uses this socket
-        ;; to communicate back and forth with the graphics namespace
-        ;; to actually implement the UI.
-        ]
-             ;; FIXME: Do I want into, merge, or something totally different?
-             ;; FIXME: Whichever. Need an async channel that uses this socket
-             ;; to communicate back and forth with the graphics namespace
-             ;; to actually implement the UI.
-             (couple ctx ui uo command)
-
-    (log/info "Communications side effects finished: continuing")
-    (reset! dead-world {:context ctx
-                        ;; Output to Client
-                        :user-input ui
-                        ;; Input from Client
-                        :command command
-                        ;; Feedback to user
-                        :user-output uo
-                        ;; For notifying -main that the graphics loop is terminating
-                        :terminator (async/chan)
-                        ;; The channel that owns the thread
-                        ;; where everything interesting is happening
-                        :coupling coupling}))))
-
-(comment (defn stop!
-           [live-world]
-  (log/info "Stopping communications system")
-  (if-let [cmd (:command live-world)]
-    (do
-      ;; Do this, to stop both the i/o threads
-      (log/debug "Commanding r/w threads to quit")
-      ;; TODO: Should really count up the threads in the coupler and
-      ;; send one exit message to each.
-      ;; Pretty solidly qualifies as YAGNI.
-      ;; Actually, should send this off to individual r/w threads. With a timeout
-      ;; in case that thread doesn't exist. Except that there doesn't seem to be
-      ;; an equivalent to timeouts when it comes to sending.
-      (async/>!! cmd :exit)
-      (log/debug "First exit command sent")
-      (async/>!! cmd :exit)
-      (log/debug "Second exit command sent")
-      ;; Though it would be cleaner to just close this channel and
-      ;; make them smart enough to understand what that means.
-      ;; TODO: Make that work.
-      (async/close! cmd)
-      (log/debug "Exiting messages sent"))
-    (log/warn "Missing command channel from client"))
-
-  (if-let [in-async (:user-input live-world)]
-    (async/close! in-async)
-    (log/warn "No local input channel...what happened?"))
-  (if-let [out-async (:user-output live-world)]
-    (async/close! out-async)
-    (log/warn "No local output channel...where'd it go?"))
-
-  ;; Actually, just closing those channelss should kill off
-  ;; everything else.
-  (if-let [coupling (:coupling live-world)]
-    (log/warn "How do I decouple everything?")
-    (log/error "Missing communications coupling"))
-
-  ;; Do need to make sure the sockets are all closed first.
-  ;; Which seems to mean joining the i/o threads in :coupling
-  (if-let [ctx (:context live-world)]
-    (do
-      ;; This seems dubious...I'm probably missing something really
-      ;; vital. I *think* I should write a :quit command here, then
-      ;; read from :coupling to indicate that it's quit.
-      ;; Then again, that isn't really anything but guess-work.
-      (mq/terminate! ctx))
-    (log/error "Missing communications context"))
-
-  (if-let [terminator (:terminator live-world)]
-    (async/>!! :exiting)
-    (log/warn "Missing terminator channel. This is bad!"))
-
-  ;; Should really return a map of the moldering remains.
-  ;; Q: But why bother?
-  (init)))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
 
 (defn new-channels
@@ -390,3 +343,7 @@ TODO: formalize that using something like core.contract"
 (defn new-context
   []
   (map->Context {}))
+
+(defn new-coupling
+  []
+  (map->Coupling {}))

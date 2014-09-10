@@ -43,23 +43,6 @@ Note that penumbra has a get-version that returns a float version of the same va
 
 ;;; Initialization
 
-(defn init-fsm
-  "This doesn't particularly belong here. Except that the two seem
-strongly coupled inherently. Probably a symptom of the bigger problem
-that there's just too much going on in here."
-  []
-  (fsm/init {:disconnected
-             {:client-connect-without-server [nil :waiting-for-server]
-              :client-connect-with-server    [nil :waiting-for-home-page]
-              :client-connect-with-home-page [nil :main-life]}
-             :waiting-for-server
-             {:client-disconnect             [nil :disconnected]}
-             :server-connected
-             {:waiting-for-home-page         [nil :main-life]
-              :client-disconnect             [nil :disconnected]}
-             :main-life
-             {:client-disconnect             [nil :disconnected]}}))
-
 (defn configure-windowing
   "Penumbra's (init)"
   ([]
@@ -335,6 +318,12 @@ Kicking off the fsm. Original agent:\n" (:fsm graphics)
           ;;windowing-state (init-gl renderer-state)
           ]
       (log/trace "Updating the FSM")
+      ;; I've moved control of the FSM into its own component.
+      ;; The pieces in here don't mesh well with the Components
+      ;; library in general.
+      (raise [:not-implemented
+              {:reason "Next line doesn't match Components"
+               :todo "Start here"}])
       (fsm/start! (:fsm graphics) :disconnected)
       (log/trace "Graphics Started")
       (into  graphics {:background-threads background-threads}))))
