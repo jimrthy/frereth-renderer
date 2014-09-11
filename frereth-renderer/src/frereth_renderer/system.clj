@@ -2,6 +2,7 @@
   (:require [clojure.core.async :as async]
             [com.stuartsierra.component :as component]
             [frereth-client.system :as client]
+            [frereth-renderer.application :as application]
             [frereth-renderer.communications :as comm]
             [frereth-renderer.config :as config]
             [frereth-renderer.fsm :as fsm]
@@ -36,6 +37,7 @@
 
   (let [cfg (into (config/defaults) overriding-config-options)]
     (-> (component/system-map
+         :application (application/new-application)
          :background-threads (graphics/new-background-threads)
          :channels (comm/new-channels)
          :client (client/init cfg)
@@ -49,11 +51,12 @@
          :graphics (graphics/init)
          :logging (logging/new)
          ;;:messaging (comm/init)  ; Q: What was I planning here?
-         :session (graphics/new-session)
+         :session (application/new-session)
          :visualizer (graphics/new-visualizer))
         
         (component/system-using
-         {:background-threads [:communications-thread
+         {:application [:session]
+          :background-threads [:communications-thread
                                :eye-candy-thread]
           :channels [:logging]
           :client-socket {:url :client-url,

@@ -1,5 +1,4 @@
 (ns frereth-renderer.graphics
-  (:refer-clojure :exclude [run!])
   (:require [clojure.core.async :as async]
             [clojure.pprint :refer (pprint)]
             [com.stuartsierra.component :as component]
@@ -11,7 +10,7 @@
             [play-clj.g2d :as g2d]
             [play-clj.g3d :as g3d]
             [play-clj.math :as math]
-            [play-clj.ui :as ui]
+            [play-clj.ui :as play-ui]
             [ribol.core :refer (manage on raise)]
             [schema.core :as s]
             [schema.macros :as sm]
@@ -23,28 +22,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schema
 
-(sm/defrecord Session [width :- s/Int
-                       height :- s/Int
-                       title :- s/Str
-                       message-coupling
-                       fsm
-                       update-function]
-  component/Lifecycle
-  (start [this]
-        ;; TODO: Remember window positions from last run and reset them here.
-        ;; N.B.: That really means a custom classloader. Which must happen
-        ;; eventually anyway.
-        ;; Q: Why? On both counts? (i.e. Why would I need a custom classloader
-        ;; for remembering last position, much less needing it eventually?)
-        ;; I just want to put it off as long as possible.
-
-         ;; TODO: Restore the previous session
-         (raise :not-implemented))
-
-  (stop [this]
-        ;; TODO: Save this for restoring next time
-        (raise [:not-implemented
-                {:details "Should be optional"}])))
 
 (defrecord Visualizer [channel session]
   component/Lifecycle
@@ -127,6 +104,7 @@ Note that penumbra has a get-version that returns a float version of the same va
   []
   (play-clj/gl :gl-version))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Initialization
 
 (defn configure-windowing
@@ -155,6 +133,10 @@ Note that penumbra has a get-version that returns a float version of the same va
      (raise :not-implemented)
 
      params))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Event Handlers
+;;; TODO: These should really move into their own namespace
 
 (defn reshape
   "Should get called every time the window changes size.
@@ -340,11 +322,6 @@ State: " state "\nMessaging: " (:messaging state)
              (async/>! terminal-channel :game-over)))]
       (log/trace "Communications Thread set up")
       communications-thread)))
-
-(defn begin
-  [visual-details]
-
-)
 
 (comment (defn stop [universe]
            ;; FIXME: Is there anything I can do here?
@@ -670,8 +647,34 @@ should be called."
   (draw state)
   (comment (app/repaint!)))
 
+;;; This strongly feels like it violates the entire
+;;; Components contract. But this is a defonce, so
+;;; it doesn't seem totally awful.
+;;; Q: How can I make this reset?
+(comment (defgame frereth-renderer
+           :on-create
+           (fn [this]
+             (set-screen! this ))))
+;;; A: That creates a proxy for com.badlogic.gdx.Game,
+;;; calling the on-create event during its (create)
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
+
+;;; Basic Drawing
+
+(play-clj/defscreen initial-splash
+  :on-show
+  (fn [screen entities]
+    (play-clj/update! screen :renderer (play-clj/stage))
+    (play-ui/label "Loading..." (play-clj/color :yellow)))
+
+  :on-render
+  (fn [screen entities]
+    (play-clj/clear!)
+    (play-clj/render! screen entities)))
+
+;;; Initialization (these should really all go away)
 
 (defn new-communication-thread
   []
@@ -689,18 +692,6 @@ should be called."
 (defn new-visualizer
   []
   (map->Visualizer {}))
-
-(defn new-session
-  "This is pretty horribly over-simplified.
-But it's a start
-"
-  [{:keys [width height title update-function]
-    :or {:width 1024
-         :height 768
-         :title "Frereth"}}]
-  (map->Session {:width width
-                 :height height
-                 :title title}))
 
 (defn init
   []

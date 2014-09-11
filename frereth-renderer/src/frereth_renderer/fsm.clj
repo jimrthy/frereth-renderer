@@ -133,9 +133,11 @@ OTOH...it can be extremely convenient"
   ;; Just because clojure doesn't do things like data hiding
   ;; doesn't mean I should avoid it when it makes sense.
   (if fsm-agent
-    (if-let [ex (agent-error fsm-agent)]
+    (if-let [^RuntimeException ex (agent-error fsm-agent)]
       (do
         (log/trace "Agent is in an error state")
+        ;; Q: What should I be doing here to avoid the
+        ;; reflection warning?
         (pprint (.data ex)))
       (if-let [m @fsm-agent]
         (do
