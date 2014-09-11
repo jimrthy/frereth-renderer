@@ -13,6 +13,8 @@
             [play-clj.math :as math]
             [play-clj.ui :as ui]
             [ribol.core :refer (manage on raise)]
+            [schema.core :as s]
+            [schema.macros :as sm]
             [taoensso.timbre :as log]))
 
 ;;;; FIXME: This namespace is getting too big. How much can I split out
@@ -21,15 +23,99 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schema
 
-(defrecord Visualizer [channel]
+(sm/defrecord Session [width :- s/Int
+                       height :- s/Int
+                       title :- s/Str
+                       message-coupling
+                       fsm
+                       update-function]
+  component/Lifecycle
+  (start [this]
+        ;; TODO: Remember window positions from last run and reset them here.
+        ;; N.B.: That really means a custom classloader. Which must happen
+        ;; eventually anyway.
+        ;; Q: Why? On both counts? (i.e. Why would I need a custom classloader
+        ;; for remembering last position, much less needing it eventually?)
+        ;; I just want to put it off as long as possible.
+
+         ;; TODO: Restore the previous session
+         (raise :not-implemented))
+
+  (stop [this]
+        ;; TODO: Save this for restoring next time
+        (raise [:not-implemented
+                {:details "Should be optional"}])))
+
+(defrecord Visualizer [channel session]
   component/Lifecycle
   (start
     [this]
+    (log/info "Starting graphics system")
+    
     (assoc this :channel (async/chan)))
   (stop
     [this]
     (async/close! channel)
     (assoc this :channel nil)))
+
+(declare begin-communications)
+(defrecord CommunicationsThread
+    [communications visualizer stopper]
+  component/Lifecycle
+  (start [this]
+    (log/trace "Starting communications thread")
+    (let [stopper (async/chan)])
+    (into this {:communications
+                (begin-communications visualizer stopper)
+                :stopper stopper}))
+  (stop [this]
+    (async/close! stopper)
+    (into this {:communications nil
+                :stopper nil})))
+
+;; This is effectively identical to
+;; CommunicationsThread. Except for the function
+;; that actually runs the thread.
+;; TODO: This approach smells.
+(declare begin-eye-candy-thread)
+(defrecord EyeCandyThread
+    [eye-candy visualizer stopper]
+  component/Lifecycle
+  (start [this]
+    (log/trace "Starting graphics thread")
+    (let [stopper (async/chan)]
+      (async/thread
+        (into this {:eye-candy
+                    (begin-eye-candy-thread visualizer stopper)
+                    :stopper stopper}))))
+  (stop [this]
+    (async/close! stopper)
+    (into this {:eye-candy nil
+                :stopper nil})))
+
+;; TODO: These should all really go away
+(defrecord BackgroundThreads
+  [communications-thread eye-candy-thread]
+  component/Lifecycle
+  (start [this]
+  ;; Note that this probably won't work on Mac. Or maybe it will...it'll
+  ;; be interesting to see. (I've seen lots of posts complaining about trying to
+  ;; get Cocoa apps doing anything when the graphics try to happen on anything
+  ;; except the main thread)
+    this)
+
+  (stop [this]
+    this))
+
+(defrecord Graphics
+    [fsm background-threads]
+  component/Lifecycle
+  (start [this]
+    (fsm/send-transition fsm :disconnect)
+    this)
+  (stop [this]
+    (fsm/send-transition fsm :cancel)
+    this))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Information
@@ -176,7 +262,7 @@ State:\n" state)]
 (defn begin-eye-candy-thread
   "Graphics first and foremost: the user needs eye candy ASAP.
 This makes that happen"
-  [visual-details]
+  [visual-details stopper]
   (log/info "Kicking off penumbra window")
   (raise :not-implemented)
   (comment (app/start
@@ -200,7 +286,7 @@ This makes that happen"
 as vital...but it's a very close second in both
 categories.
 OTOH, this really belongs elsewhere."
-  [state]
+  [state stopper]
   (let [control-channel (-> state :messaging deref :command)
         fsm-atom (:fsm state)]
     (log/trace "\n****************************************************
@@ -210,7 +296,7 @@ State: " state "\nMessaging: " (:messaging state)
            "\n****************************************************")
     (let [communications-thread
           (async/go
-           (loop [msg (async/<! control-channel)]
+            (loop [[c msg] (async/alts! control-channel stopper)]
              ;; Check for channel closed
              (when-not (nil? msg)
                (log/trace "Control Message:\n" msg)
@@ -237,7 +323,7 @@ State: " state "\nMessaging: " (:messaging state)
                ;; a multiple secondary FSMs which I have absolutely no control
                ;; over. That doesn't exactly seem like a good recipe for a
                ;; "happy path"       
-               (let [next-state (fsm/transition! @fsm-atom msg true)]
+               (let [next-state (fsm/send-transition @fsm-atom msg true)]
                  ;; TODO: I don't think this is really even all that close
                  ;; to what I want.
                  (when-not (= next-state :__dead)
@@ -256,98 +342,30 @@ State: " state "\nMessaging: " (:messaging state)
       communications-thread)))
 
 (defn begin
-  "Kick off the threads where everything interesting happens."
   [visual-details]
 
-  ;; Note that this probably won't work on Mac. Or maybe it will...it'll
-  ;; be interesting to see. (I've seen lots of posts complaining about trying to
-  ;; get Cocoa apps doing anything when the graphics try to happen on anything
-  ;; except the main thread)
-  (log/trace "Starting graphics thread")
-  (let [eye-candy-thread
-        (async/thread
-         (begin-eye-candy-thread visual-details))]
-    (log/trace "Starting communications thread")
-    (let [communications-thread
-          (begin-communications visual-details)]
-      (log/trace "Communications begun")
-      {:communications communications-thread
-       :graphics eye-candy-thread})))
+)
 
-;; Don't want to declare this here. Really shouldn't be calling it directly
-;; at all. Honestly, need something like a var that I can override with
-;; the current view.
-;; Then again, that should probably be a member of the "global" state that's
-;; getting created below in visual-details.
-;; Then I should be able to update that member as needed from the communications
-;; thread from the client. It probably does not make sense to update it
-;; based on anything that would happen on the renderer side, unless I decide
-;; that it makes sense to run "window managers" here.
-;; So plan on that, for now.
-(declare update-initial-splash)
-(defn restore-last-session
-  "This is horribly over-simplified. But it's a start."
-  [messaging graphics]
-   {:width 1024
-    :height 768
-    :title "Frereth"
-    :messaging messaging
-    :fsm (:fsm graphics)
-    ;; This next is pretty much totally invalid long-term.
-    ;; But it's a decent baby step.
-    :update-function update-initial-splash})
-
-(defn start [graphics messaging]
-  (log/info "Starting graphics system")
-  (let [;; TODO: Don't use magic numbers.
-        ;; TODO: Remember window positions from last run and reset them here.
-        ;; N.B.: That really means a custom classloader. Which must happen
-        ;; eventually anyway.
-        ;; Q: Why? On both counts? (i.e. Why would I need a custom classloader
-        ;; for remembering last position, much less needing it eventually?)
-        ;; I just want to put it off as long as possible.
-        visual-details (restore-last-session messaging graphics)
-        background-threads (begin visual-details)]
-
-    (comment) (log/trace "**********************************************************
-Kicking off the fsm. Original agent:\n" (:fsm graphics)
-"\nOriginal agent state:\n" @(:fsm graphics)
-"\n***********************************************************")
-
-    (let [renderer-state (:renderer graphics)
-          ;;windowing-state (init-gl renderer-state)
-          ]
-      (log/trace "Updating the FSM")
-      ;; I've moved control of the FSM into its own component.
-      ;; The pieces in here don't mesh well with the Components
-      ;; library in general.
-      (raise [:not-implemented
-              {:reason "Next line doesn't match Components"
-               :todo "Start here"}])
-      (fsm/start! (:fsm graphics) :disconnected)
-      (log/trace "Graphics Started")
-      (into  graphics {:background-threads background-threads}))))
-
-(defn stop [universe]
-  ;; FIXME: Is there anything I can do here?
-  ;; (That's a pretty vital requirement)
-  
-  ;; FIXME: It would be much better to pass in the actual window(s)
-  ;; that I want to destroy.
-  ;; Then again, that may be totally pointless until/if lwjgl
-  ;; gets around to actually switching to that sort of API.
-  ;; This is the sort of quandary that makes me wish jogl were
-  ;; less finicky about getting installed.
-  ;; I don't think I want this.
-  ;; TODO: The app has a :destroy! key that points to a function
-  ;; that looks suspiciously as though it's what I actually want.
-  (comment (core/destroy! (into universe
-                                ;; Very tempting to close the window. Actually,
-                                ;; really must do that if I want to reclaim resources
-                                ;; so I can reset them.
-                                ;; That means expanding penumbra's API.
-                                ;; TODO: Make that happen.
-                                (fsm/stop (-> universe :graphics :fsm))))))
+(comment (defn stop [universe]
+           ;; FIXME: Is there anything I can do here?
+           ;; (That's a pretty vital requirement)
+           
+           ;; FIXME: It would be much better to pass in the actual window(s)
+           ;; that I want to destroy.
+           ;; Then again, that may be totally pointless until/if lwjgl
+           ;; gets around to actually switching to that sort of API.
+           ;; This is the sort of quandary that makes me wish jogl were
+           ;; less finicky about getting installed.
+           ;; I don't think I want this.
+           ;; TODO: The app has a :destroy! key that points to a function
+           ;; that looks suspiciously as though it's what I actually want.
+           (comment (core/destroy! (into universe
+                                         ;; Very tempting to close the window. Actually,
+                                         ;; really must do that if I want to reclaim resources
+                                         ;; so I can reset them.
+                                         ;; That means expanding penumbra's API.
+                                         ;; TODO: Make that happen.
+                                         (fsm/stop (-> universe :graphics :fsm)))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
@@ -655,6 +673,35 @@ should be called."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
 
+(defn new-communication-thread
+  []
+  (map->CommunicationsThread {}))
+
+(defn new-eye-candy-thread
+  []
+  (map->EyeCandyThread {}))
+
+(defn new-background-threads
+  [{:keys [communications-thread eye-candy-thread]}]
+  (map->BackgroundThreads {:communications-thread communications-thread
+                           :eye-candy-thread eye-candy-thread}))
+
 (defn new-visualizer
   []
   (map->Visualizer {}))
+
+(defn new-session
+  "This is pretty horribly over-simplified.
+But it's a start
+"
+  [{:keys [width height title update-function]
+    :or {:width 1024
+         :height 768
+         :title "Frereth"}}]
+  (map->Session {:width width
+                 :height height
+                 :title title}))
+
+(defn init
+  []
+  (map->Graphics {}))

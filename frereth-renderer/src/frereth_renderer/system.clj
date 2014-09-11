@@ -36,25 +36,37 @@
 
   (let [cfg (into (config/defaults) overriding-config-options)]
     (-> (component/system-map
+         :background-threads (graphics/new-background-threads)
          :channels (comm/new-channels)
          :client (client/init cfg)
          :client-socket (comm/new-client-socket)
          :client-url (comm/new-client-url cfg)
+         :communications-thread (graphics/new-communication-thread)
          :context (comm/new-context)
          :coupling (comm/new-coupling)
+         :eye-candy-thread (graphics/new-eye-candy-thread)
          :fsm (fsm/init {:fsm-description cfg})
+         :graphics (graphics/init)
          :logging (logging/new)
-         :messaging (comm/init)  ; Q: What was I planning here?
+         ;;:messaging (comm/init)  ; Q: What was I planning here?
+         :session (graphics/new-session)
          :visualizer (graphics/new-visualizer))
         
         (component/system-using
-         {:channels [:logging]
+         {:background-threads [:communications-thread
+                               :eye-candy-thread]
+          :channels [:logging]
           :client-socket {:url :client-url,
                           :context :context}
           :client-url [:logging]
+          :communications-thread [:visualizer]
           :context [:logging]
           :coupling [:context :channels]
-          :visualizer [:logging]}))))
+          :eye-candy-thread [:visualizer]
+          :graphics [:background-threads :fsm]
+          :session {:message-coupling :coupling}
+          :visualizer [:logging
+                       :session]}))))
 
 (comment (defn quit-being-hermit
            "Make contact with the outside world"

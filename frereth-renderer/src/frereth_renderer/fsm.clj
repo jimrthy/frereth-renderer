@@ -47,7 +47,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
 
-(sm/defn new-fsm :- FiniteStateMachine
+(sm/defn init :- FiniteStateMachine
   "Returns a dead FSM.
 The description should be a map that looks like:
  {:state1
@@ -85,7 +85,7 @@ TODO: Would core.async be more appropriate than agents?"
       :initial-state initial-state
       :manager (agent {:__state :__pre-init})})))
 
-(defn transition!
+(defn send-transition
   "Sends a transition request.
 error-if-unknown allows caller to ignore requests to perform
 an illegal transition for the current state.

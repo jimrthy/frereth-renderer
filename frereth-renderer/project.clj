@@ -61,7 +61,7 @@ java.library.path and that's good enough."
                  [org.clojure/math.combinatorics "0.0.7"]
                  [org.flatland/useful "0.11.2"]
                  [org.zeromq/cljzmq "0.1.4"]
-                 [play-clj "0.3.10"]
+                 [play-clj "0.3.11"]
                  ;; TODO: An nrepl client?
                  [prismatic/plumbing "0.3.3"]
                  [prismatic/schema "0.2.6"]
