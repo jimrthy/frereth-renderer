@@ -1,5 +1,6 @@
 (ns frereth-renderer.communications
-  (:require [clojure.core.async :as async]
+  (:require [byte-streams :as streams]
+            [clojure.core.async :as async]
             [clojure.pprint :refer (pprint)]
             [com.stuartsierra.component :as component]
             [plumbing.core :as pc]
@@ -69,7 +70,7 @@
     [this]
     ;; Do need to make sure the sockets are all closed first.
     ;; Which seems to mean joining the i/o threads in :coupling
-    (.close (:context this))  ; TODO: Getting a compiler warning about reflection ??
+    (.close ^ZMQ$Context (:context this))  ; TODO: Getting a compiler warning about reflection ??
     (assoc this :context nil)))
 
 (declare couple)
@@ -277,10 +278,13 @@ Need to handle this.")))
         (log/debug "Waiting for reader thread to share its port")
         (let [reader-port (async/<!! r->w)]
           (log/debug "Pushing HELO to client, listening on port " reader-port)
-          (mq/send writer-sock ":helo")
+          (mq/send writer-sock (.getBytes ":helo"))  ; TODO: :snd-more flag
           ;; Trigger the client to connect to the socket bound in the
           ;; client->ui thread
-          (mq/send writer-sock reader-port)
+          ;; TODO: This is something incredibly stupid
+          (log/warn "I haven't figured out how to send a SHORT over a socket. What's wrong with me?")
+          (comment (mq/send writer-sock (streams/convert reader-port java.nio.ByteBuffer)))
+          (mq/send writer-sock (.getBytes (str reader-port)))
           (log/debug "Client accepted the HELO. Waiting for an ACK...")
           ;; Getting to here. Values getting horribly mangled in transmission.
           ;; FIXME: Start here!

@@ -59,7 +59,7 @@
 
 (defn new-application
   []
-  (map->Application []))
+  (map->Application {}))
 
 (defn new-session
   "This is pretty horribly over-simplified.

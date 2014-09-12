@@ -588,6 +588,7 @@ should be called."
 
 ;;; Basic Drawing
 
+;; Used from within application
 (play-clj/defscreen initial-splash
   :on-show
   (fn [screen entities]

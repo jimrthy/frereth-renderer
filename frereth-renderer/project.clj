@@ -32,7 +32,8 @@ java.library.path and that's good enough."
 
   ;; Big swaths of these are only needed because I haven't found the time
   ;; to properly configure my local maven repo.
-  :dependencies [[byte-transforms "0.1.3"]
+  :dependencies [[byte-streams "0.1.13"]
+                 [byte-transforms "0.1.3"]
                  [com.badlogicgames.gdx/gdx "1.3.1"]
                  [com.badlogicgames.gdx/gdx-backend-lwjgl "1.3.1"]
                  [com.badlogicgames.gdx/gdx-box2d "1.3.1"]
@@ -76,6 +77,9 @@ java.library.path and that's good enough."
                  ;; penumbra.
                  ;; TODO: Figure out where this actually belongs.
                  ;;[slick-util "1.0.0"]
+                 ;; Probably does not belong at all in the "new reality"
+                 ;; of using libgdx as the foundation
+                 
                  ]
   :documentation {:files {"basics" {:input "test/docs/basics.clj"
                                     :title "Basics"

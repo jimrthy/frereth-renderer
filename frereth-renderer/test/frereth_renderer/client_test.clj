@@ -3,11 +3,13 @@
             [clojure.pprint :refer [pprint]]
             [com.stuartsierra.component :as component]
             [frereth-renderer.communications :as comms]
+            [frereth-renderer.events :as e]
             [frereth-renderer.fsm :as fsm]
             [frereth-renderer.graphics :as g]
             [frereth-renderer.system :as sys]
             [midje.sweet :refer (facts fact)]
             [ribol.core :refer (raise)]
+            [com.stuartsierra.component :as component]
             [taoensso.timbre :as log]))
 
 (facts "Render listens for client messages and adjusts state accordingly."
@@ -46,17 +48,18 @@
                            (async/>!! commands :fake-bogus)
                            (fsm/current-state fsm-agent) => :main-life)
                      (fact "User input does not affect the FSM"
-                           (g/key-press \a alive)
+                           (e/key-press \a alive)
                            (fsm/current-state fsm-agent) => :main-life
-                           (g/key-type \s alive)
+                           (e/key-type \s alive)
                            (fsm/current-state fsm-agent) => :main-life
-                           (g/key-release \a alive)
+                           (e/key-release \a alive)
                            (fsm/current-state fsm-agent) => :main-life)
                      (fact "Can disconnect the client"
                            (async/>!! commands :client-disconnect)
                            (fsm/current-state fsm-agent) => :disconnected)
                      (fact "Killing the FSM should also kill the command thread"
-                           (fsm/stop fsm-agent)
+                           ;; This test smells bad
+                           (component/stop fsm-agent)
                            (fsm/current-state fsm-agent) => :__dead
                            ;; But I have to send one final message on the command channel
                            (async/>!! commands :anything))

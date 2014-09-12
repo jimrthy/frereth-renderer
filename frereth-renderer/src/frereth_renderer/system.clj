@@ -38,7 +38,7 @@
   (let [cfg (into (config/defaults) overriding-config-options)]
     (-> (component/system-map
          :application (application/new-application)
-         :background-threads (graphics/new-background-threads)
+         :background-threads (graphics/new-background-threads {})
          :channels (comm/new-channels)
          :client (client/init cfg)
          :client-socket (comm/new-client-socket)
@@ -47,11 +47,12 @@
          :context (comm/new-context)
          :coupling (comm/new-coupling)
          :eye-candy-thread (graphics/new-eye-candy-thread)
-         :fsm (fsm/init {:fsm-description cfg})
+         :fsm (fsm/init (:fsm-description cfg)
+                        (:initial-state cfg))
          :graphics (graphics/init)
          :logging (logging/new)
          ;;:messaging (comm/init)  ; Q: What was I planning here?
-         :session (application/new-session)
+         :session (application/new-session {:title "I did something different"})
          :visualizer (graphics/new-visualizer))
         
         (component/system-using
