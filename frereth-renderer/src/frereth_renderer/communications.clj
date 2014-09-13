@@ -270,7 +270,7 @@ Need to handle this.")))
   ;; when the communication times out.
   ;; That approach fails in that I need to get *something* working before I
   ;; start worrying about things like error handling.
-  (let [writer-sock (mq/socket ctx :req)
+  (let [writer-sock (mq/socket ctx :dealer)
         url "tcp://127.0.0.1:7842"]  ; TODO: magic strings are evil
     (try
       (mq/connect writer-sock url)

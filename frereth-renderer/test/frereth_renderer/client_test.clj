@@ -17,7 +17,7 @@
        ;; This is almost a test of the FSM, but I need *something*
        ;; to try to exercise some of the renderer code.
        ;; Honestly, these messages should be going to the 
-       (let [initial (sys/init {})
+       (let [initial (sys/build {})
              alive (component/start initial)]
          (try
            ;; TODO: These commands should be going over the external

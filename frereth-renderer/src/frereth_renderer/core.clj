@@ -9,7 +9,7 @@
 (defn -main
   "Theoretically, this is the entry point where everything interesting should start."
   [& args]
-  (let [dead-world (sys/init {})
+  (let [dead-world (sys/build {})
         world (component/start dead-world)]
     (try
       ;; Wait for this to exit.

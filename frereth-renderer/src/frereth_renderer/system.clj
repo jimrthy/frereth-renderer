@@ -19,11 +19,60 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
 
-(defn init
+(defn- init
   "Generate a dead system"
-  [overriding-config-options]
+  [cfg]
   (set! *warn-on-reflection* true)
   (log/info "INIT")
+
+  (component/system-map
+   :application (application/new-application)
+   :background-threads (graphics/new-background-threads {})
+   :channels (comm/new-channels)
+   ;; TODO: These next pieces are wrong. There should
+   ;; be a many-to-many relationship among renderers and
+   ;; clients.
+   ;; Although, really, the client shouldn't need to know
+   ;; that
+   :client (client/init cfg)
+   :client-socket (comm/new-client-socket)
+   :client-url (comm/new-client-url cfg)
+   :communications-thread (graphics/new-communication-thread)
+   :context (comm/new-context)
+   :coupling (comm/new-coupling)
+   ;; :eye-candy-thread (graphics/new-eye-candy-thread)
+   :fsm (fsm/init (:fsm-description cfg)
+                  (:initial-state cfg))
+   :graphics (graphics/init)
+   :logging (logging/new)
+   ;;:messaging (comm/init)  ; Q: What was I planning here?
+   ;; A: Looks like this was supposed to be for the communications-thread.
+   ;; That has an atom for holding command and terminator channels.
+   ;; Honestly, it's a fairly muddled mess that I need to rethink.
+   :session (application/new-session {:title "I did something different"})
+   :visualizer (graphics/new-visualizer)))
+
+(defn dependencies
+  [base]
+  {:application [:session]
+   :background-threads [:communications-thread
+                        ;;:eye-candy-thread
+                        ]
+   :channels [:logging]
+   :client-socket {:url :client-url,
+                   :context :context}
+   :client-url [:logging]
+   :communications-thread [:visualizer]
+   :context [:logging]
+   :coupling [:context :channels]
+   ;;:eye-candy-thread [:visualizer]
+   :graphics [:background-threads :fsm]
+   :session {:message-coupling :coupling}
+   :visualizer {:logging :logging
+                :session :session}})
+
+(defn build
+  [overriding-config-options]
 
    ;; TODO: Create a "Top Level" window?
    ;; Note: if I decide to go with LWJGL, I should be able
@@ -35,42 +84,10 @@
    ;; ...except for projects where they really and truly
    ;; make sense.
 
-  (let [cfg (into (config/defaults) overriding-config-options)]
-    (-> (component/system-map
-         :application (application/new-application)
-         :background-threads (graphics/new-background-threads {})
-         :channels (comm/new-channels)
-         :client (client/init cfg)
-         :client-socket (comm/new-client-socket)
-         :client-url (comm/new-client-url cfg)
-         :communications-thread (graphics/new-communication-thread)
-         :context (comm/new-context)
-         :coupling (comm/new-coupling)
-         :eye-candy-thread (graphics/new-eye-candy-thread)
-         :fsm (fsm/init (:fsm-description cfg)
-                        (:initial-state cfg))
-         :graphics (graphics/init)
-         :logging (logging/new)
-         ;;:messaging (comm/init)  ; Q: What was I planning here?
-         :session (application/new-session {:title "I did something different"})
-         :visualizer (graphics/new-visualizer))
-        
-        (component/system-using
-         {:application [:session]
-          :background-threads [:communications-thread
-                               :eye-candy-thread]
-          :channels [:logging]
-          :client-socket {:url :client-url,
-                          :context :context}
-          :client-url [:logging]
-          :communications-thread [:visualizer]
-          :context [:logging]
-          :coupling [:context :channels]
-          :eye-candy-thread [:visualizer]
-          :graphics [:background-threads :fsm]
-          :session {:message-coupling :coupling}
-          :visualizer [:logging
-                       :session]}))))
+  (let [cfg (into (config/defaults) overriding-config-options)
+        skeleton (init cfg)
+        meat (dependencies skeleton)]
+    (component/system-using skeleton meat)))
 
 (comment (defn quit-being-hermit
            "Make contact with the outside world"

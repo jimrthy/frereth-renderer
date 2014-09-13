@@ -23,7 +23,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schema
 
-(defrecord Visualizer [channel session]
+(defrecord Visualizer [channel logging session]
   component/Lifecycle
   (start
     [this]
@@ -171,7 +171,7 @@ never gets called."
 This makes that happen"
   [visual-details stopper]
   (log/info "Kicking off penumbra window")
-  (raise :not-implemented)
+  (raise :obsolete)
   (comment (app/start
             {:close close
              :display display
@@ -190,84 +190,68 @@ This makes that happen"
 
 (defn begin-communications
   " Actually updating things isn't as interesting [at first] or [quite]
-as vital...but it's a very close second in both
+as vital as the eye candy...but it's a very close second in both
 categories.
 OTOH, this really belongs elsewhere."
   [state stopper]
-  (let [control-channel (-> state :messaging deref :command)
-        fsm-atom (:fsm state)]
-    (log/trace "\n****************************************************
+  (if-let [messaging-atom (:messaging state)]
+    (let [messaging @messaging-atom
+          control-channel (:command messaging)
+          fsm-atom (:fsm state)]
+      (log/trace "\n****************************************************
 Initializing Communications
 State: " state "\nMessaging: " (:messaging state)
-           "\nControl Channel: " control-channel "\nFSM Atom: " fsm-atom
-           "\n****************************************************")
-    (let [communications-thread
-          (async/go
-            (loop [[c msg] (async/alts! control-channel stopper)]
-             ;; Check for channel closed
-             (when-not (nil? msg)
-               (log/trace "Control Message:\n" msg)
+"\nControl Channel: " control-channel "\nFSM Atom: " fsm-atom
+"\n****************************************************")
+      (let [communications-thread
+            (async/go
+              (loop [[c msg] (async/alts! control-channel stopper)]
+                ;; Check for channel closed
+                (when-not (nil? msg)
+                  (log/trace "Control Message:\n" msg)
 
-               ;; FIXME: Need a "quit" message.
-               ;; This approach misses quite a few points, I think.
-               ;; This pieces of the FSM should be for very coarsely-
-               ;; grained transitions...
-               ;; then again, maybe my entire picture of the architecture
-               ;; is horribly flawed.
-               ;; TODO: Where's the actual communication happening?
-               ;; All I really care about right here, right now is
-               ;; establishing the heartbeat connection.
+                  ;; FIXME: Need a "quit" message.
+                  ;; This approach misses quite a few points, I think.
+                  ;; This pieces of the FSM should be for very coarsely-
+                  ;; grained transitions...
+                  ;; then again, maybe my entire picture of the architecture
+                  ;; is horribly flawed.
+                  ;; TODO: Where's the actual communication happening?
+                  ;; All I really care about right here, right now is
+                  ;; establishing the heartbeat connection.
 
-               (log/debug "Communications Loop Received\n" 
-                             msg "\nfrom control channel")
-               (throw (RuntimeException. "Start here"))
+                  (log/info "Communications Loop Received\n" 
+                            msg "\nfrom control channel")
+                  (raise :start-here)
 
-               ;; This really isn't good enough. This also has to handle responses
-               ;; to UI requests. I'm torn between using yet another channel
-               ;; (to where?) for this and using penumbra's message queue.
-               ;; Then again, maybe requiring client apps to work with the
-               ;; FSM makes sense...except that now we're really talking about
-               ;; a multiple secondary FSMs which I have absolutely no control
-               ;; over. That doesn't exactly seem like a good recipe for a
-               ;; "happy path"       
-               (let [next-state (fsm/send-transition @fsm-atom msg true)]
-                 ;; TODO: I don't think this is really even all that close
-                 ;; to what I want.
-                 (when-not (= next-state :__dead)
-                   (recur (async/<! control-channel))))))
-           ;; Doesn't hurt to close it twice, does it?
-           (async/close! control-channel)
+                  ;; This really isn't good enough. This also has to handle responses
+                  ;; to UI requests. I'm torn between using yet another channel
+                  ;; (to where?) for this and using penumbra's message queue.
+                  ;; Then again, maybe requiring client apps to work with the
+                  ;; FSM makes sense...except that now we're really talking about
+                  ;; a multiple secondary FSMs which I have absolutely no control
+                  ;; over. That doesn't exactly seem like a good recipe for a
+                  ;; "happy path"       
+                  (let [next-state (fsm/send-transition @fsm-atom msg true)]
+                    ;; TODO: I don't think this is really even all that close
+                    ;; to what I want.
+                    (when-not (= next-state :__dead)
+                      (recur (async/<! control-channel))))))
+              ;; Q: Doesn't hurt to close it twice, does it?
+              (async/close! control-channel)
 
-           (log/info "Communications loop exiting")
-           ;; TODO: Kill the window!!
-           (let [terminal-channel (-> state :messaging deref :terminator)]
-             ;; Realistically, I want this to be synchronous.
-             ;; Can that happen inside a go block?
-             ;; Oh well. It shouldn't matter all that much.
-             (async/>! terminal-channel :game-over)))]
-      (log/trace "Communications Thread set up")
-      communications-thread)))
-
-(comment (defn stop [universe]
-           ;; FIXME: Is there anything I can do here?
-           ;; (That's a pretty vital requirement)
-           
-           ;; FIXME: It would be much better to pass in the actual window(s)
-           ;; that I want to destroy.
-           ;; Then again, that may be totally pointless until/if lwjgl
-           ;; gets around to actually switching to that sort of API.
-           ;; This is the sort of quandary that makes me wish jogl were
-           ;; less finicky about getting installed.
-           ;; I don't think I want this.
-           ;; TODO: The app has a :destroy! key that points to a function
-           ;; that looks suspiciously as though it's what I actually want.
-           (comment (core/destroy! (into universe
-                                         ;; Very tempting to close the window. Actually,
-                                         ;; really must do that if I want to reclaim resources
-                                         ;; so I can reset them.
-                                         ;; That means expanding penumbra's API.
-                                         ;; TODO: Make that happen.
-                                         (fsm/stop (-> universe :graphics :fsm)))))))
+              (log/info "Communications loop exiting")
+              ;; TODO: Kill the window!!
+              (let [terminal-channel (-> state :messaging deref :terminator)]
+                ;; Realistically, I want this to be synchronous.
+                ;; Can that happen inside a go block?
+                ;; Oh well. It shouldn't matter all that much.
+                (async/>! terminal-channel :game-over)))]
+        (log/trace "Communications Thread set up")
+        communications-thread))
+    (raise [:broken
+            {:missing :messaging-atom
+             :state state}])))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;

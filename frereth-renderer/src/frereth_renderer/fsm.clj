@@ -72,25 +72,28 @@ an extremely rich API for cheap.
 TODO: Would core.async be more appropriate than agents?"
   [states :- {s/Keyword Transition}
    initial-state :- s/Keyword]
-  (if states
-    (let [initial-pairs (map (fn [[k v]]
-                               [k (strict-map->State {:edges v})])
-                             states)]
-      (log/debug "Went from\n" states
-                 "\nto\n" initial-pairs
-                 "\nTrying to convert to a Description:")
-      (let [initial-map (hash-map initial-pairs)
-            descr (s/validate Description
-                              (into initial-map
-                                    {:__done {:edges {:pre-init {:next-state :__pre-init}}}
-                                     :__pre-init {:edges {:init {:next-state :__init}
-                                                          :cancel {:next-state :__dead}}}
-                                     :__init nil}))]
-        (strict-map->FiniteStateMachine
-         {:description descr
-          :initial-state initial-state
-          :manager (agent {:__state :__pre-init})})))
-    (log/debug "Creating the FSM with no initial states. This will probably backfire")))
+  (let [hard-coded {:__done {:edges {:pre-init {:next-state :__pre-init}}}
+                    :__pre-init {:edges {:init {:next-state :__init}
+                                         :cancel {:next-state :__dead}}}
+                    :__init nil}
+        mgr (agent {:__state :__pre-init})
+        base-line {:description hard-coded
+                   :manager mgr}]
+    (if states
+      (let [initial-pairs (map (fn [[k v]]
+                                 [k (strict-map->State {:edges v})])
+                               states)]
+        (log/debug "Went from\n" states
+                   "\nto\n" initial-pairs
+                   "\nTrying to convert to a Description:")
+        (let [initial-map (hash-map initial-pairs)
+              descr (s/validate Description
+                                (into initial-map
+                                      hard-coded))]
+          (strict-map->FiniteStateMachine
+           (assoc base-line :initial-state initial-state))))
+      (do (log/debug "Creating the FSM with no initial states. This will probably backfire")
+          (map->FiniteStateMachine base-line)))))
 
 (defn send-transition
   "Sends a transition request.

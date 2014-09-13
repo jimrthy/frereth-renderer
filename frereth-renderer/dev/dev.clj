@@ -30,8 +30,8 @@
                    :main-life
                    {:client-disconnect             [nil :disconnected]}}]
     (alter-var-root #'system
-                    (constantly (system/init {:fsm-description fsm-descr
-                                              :initial-state :disconnected})))))
+                    (constantly (system/build {:fsm-description fsm-descr
+                                               :initial-state :disconnected})))))
 
 (defn start
   "Starts the current development system."
