@@ -42,7 +42,7 @@
    :client (client/init cfg)
    :client-socket (comm/new-client-socket)
    :client-url (comm/new-client-url cfg)
-   :communications-thread (input/new-communication-thread)
+   :client-heartbeat-thread (input/new-client-connection-thread)
    :context (comm/new-context)
    :coupling (comm/new-coupling)
    ;; :eye-candy-thread (graphics/new-eye-candy-thread)
@@ -62,22 +62,17 @@
 (defn dependencies
   [base]
   {:application [:session]
-   ;;:background-threads
-   #_[:communications-thread
-    ;;:eye-candy-thread
-    ]
    :channels [:logging]
    :client-socket {:url :client-url,
                    :context :context}
    :client-url [:logging]
-   :communications-thread [:fsm :visualizer]
+   :client-heartbeat-thread [:channels :fsm]
    :context [:logging]
    :coupling [:context :channels]
-   ;;:eye-candy-thread [:visualizer]
    ;; TODO: graphics absolutely should not depend
    ;; on communications.
-   ;; Although it *does* impact the FSM
-   :graphics [:communications-thread :fsm]
+   ;; Although it *is* strongly impacted by the FSM
+   :graphics [:client-heartbeat-thread :fsm]
    :persistence [:session-manager]
    :session [:persistence]
    :visualizer {:logging :logging

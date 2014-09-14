@@ -33,14 +33,16 @@
                         ;; to control transitions from one screen
                         ;; to the next.
                         (create []
-                          (play-clj/set-screen! graphics/initial-splash)))
-                 title (:title session)
-                 width (:width session)
-                 height (:height session)
-                 app (LwjglApplication. game title width height)]
-             (log/info "Main window initialized")
-             (into this {:listener game
-                         :owner app}))
+                          (play-clj/set-screen! graphics/initial-splash)))]
+             (log/info "Game Listener created. Associating Session:\n"
+                       (with-out-str (pprint session)))
+             (let [title (:title session)
+                   width (:width session)
+                   height (:height session)
+                   app (LwjglApplication. game title width height)]
+               (log/info "Main window initialized")
+               (into this {:listener game
+                           :owner app})))
            (catch RuntimeException ex
              (log/error ex "Setting up the Application failed")
              (raise [:app/runtime-initialization

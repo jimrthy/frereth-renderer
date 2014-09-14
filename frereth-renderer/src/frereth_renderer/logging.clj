@@ -24,6 +24,8 @@
     (log/set-config!
      [:shared-appender-config :rotor]
      {:path (pick-log-file-name) :max-size (* 512 1024) :backlog 5})
+    (log/set-config!
+     [:appenders :spit :enabled?] true)
     (log/warn "FIXME: Log to a database instead")
     this)
 

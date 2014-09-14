@@ -23,6 +23,8 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schema
 
+;;; Q: What's the actual difference between these?
+
 (defrecord Visualizer [channel logging session]
   component/Lifecycle
   (start
@@ -35,43 +37,8 @@
     (async/close! channel)
     (assoc this :channel nil)))
 
-;; This is effectively identical to
-;; CommunicationsThread. Except for the function
-;; that actually runs the thread.
-;; TODO: This approach smells.
-(declare begin-eye-candy-thread)
-(defrecord EyeCandyThread
-    [eye-candy visualizer stopper]
-  component/Lifecycle
-  (start [this]
-    (log/trace "Starting graphics thread")
-    (raise :obsolete)
-    (let [stopper (async/chan)]
-      (async/thread
-        (into this {:eye-candy
-                    (begin-eye-candy-thread visualizer stopper)
-                    :stopper stopper}))))
-  (stop [this]
-    (async/close! stopper)
-    (into this {:eye-candy nil
-                :stopper nil})))
-
-;; TODO: These should all really go away
-(defrecord BackgroundThreads
-  [communications-thread]
-  component/Lifecycle
-  (start [this]
-  ;; Note that this probably won't work on Mac. Or maybe it will...it'll
-  ;; be interesting to see. (I've seen lots of posts complaining about trying to
-  ;; get Cocoa apps doing anything when the graphics try to happen on anything
-  ;; except the main thread)
-    this)
-
-  (stop [this]
-    this))
-
 (defrecord Graphics
-    [fsm background-threads]
+    [fsm client-heartbeat-thread]
   component/Lifecycle
   (start [this]
     (fsm/send-transition fsm :disconnect)
@@ -504,15 +471,6 @@ should be called."
     (play-clj/render! screen entities)))
 
 ;;; Initialization (these should really all go away)
-
-(defn new-eye-candy-thread
-  []
-  (map->EyeCandyThread {}))
-
-(defn new-background-threads
-  [{:keys [communications-thread eye-candy-thread]}]
-  (map->BackgroundThreads {:communications-thread communications-thread
-                           :eye-candy-thread eye-candy-thread}))
 
 (defn new-visualizer
   []

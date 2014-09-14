@@ -17,7 +17,9 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schema
 
-;; TODO: There has to be a base class that's less implementation-specific
+;; It seems like there really should be a base class that's
+;; less implementation-specific.
+;; There doesn't seem to be. Oh well.
 (sm/defrecord Channels [ui :- clojure.core.async.impl.channels.ManyToManyChannel
                         uo :- clojure.core.async.impl.channels.ManyToManyChannel
                         cmd :- clojure.core.async.impl.channels.ManyToManyChannel
@@ -193,10 +195,23 @@ I try to handle edge cases."
                       (log/info "cmd message: Assume this means exit gracefully"))))))))
 
 (defn client->ui
-  "Invoke thread that receives user input messages and forwards them to the client.
+  "Invoke thread that receives messages from the client and forwards 
+them to...somewhere else.
+At this point, the Client Heartbeat handler probably makes as much sense
+as anything else.
 ctx is the 0mq messaging context
-->ui is the core.async channel for submitting events
-cmd is the command/control channel that lets us know when it's time to quit."
+->ui is the core.async channel where events go out.
+cmd is the command/control channel that lets us know when it's time to quit.
+
+It's very tempting to have ->ui messages go to the client-heartbeat thread,
+but that's an oversimplification. Unless we pull more sockets into the
+picture.
+
+Or maybe that's perfect. What could possibly know more about what to do with
+any given message than the FSM (which is where those messages go).
+
+Then again, why not just send these messages directly to the FSM and eliminate
+the whole client-heartbeat thread thing?"
   [ctx ->ui cmd r->w w->r]
   ;; Subscribe to server events from the client
   (manage
@@ -261,15 +276,15 @@ Need to handle this.")))
     (recur (async/timeout 60))))
 
 (defn ui->client
-[ctx from-ui cmd r->w w->r]
-  ;; Push user events to the client to forward along to the server(s)
-  ;; Using a REQ socket here seems at least a little dubious. The alternatives
-  ;; that spring to mind seem worse. I send input to the Client over this channel,
-  ;; it returns an ACK. Any real feedback comes over the client->ui socket.
-  ;; This approach fails in that I really need to kill and recreate the socket
-  ;; when the communication times out.
-  ;; That approach fails in that I need to get *something* working before I
-  ;; start worrying about things like error handling.
+  "Push user events to the client to forward along to the server(s)
+  Using a REQ socket here seems at least a little dubious. The alternatives
+  that spring to mind seem worse. I send input to the Client over this channel,
+  it returns an ACK. Any real feedback comes over the client->ui socket.
+  This approach fails in that I really need to kill and recreate the socket
+  when the communication times out.
+  That approach fails in that I need to get *something* working before I
+  start worrying about things like error handling."
+  [ctx from-ui cmd r->w w->r]
   (let [writer-sock (mq/socket ctx :dealer)
         url "tcp://127.0.0.1:7842"]  ; TODO: magic strings are evil
     (try
@@ -298,7 +313,7 @@ Need to handle this.")))
         (mq/set-linger writer-sock 0)
         (mq/close writer-sock)))))
 
-(defn couple
+(sm/defn couple
   "Need to read from both the UI (keyboard, mouse, etc) and the client socket
 that's relaying messages from the server.
 
@@ -307,7 +322,10 @@ YAGNI for this version.
 
 This should be low-hanging fruit, but it's actually looking like some pretty hefty
 meat."
-  [ctx from-ui to-ui cmd]  
+  [ctx :- ZMQ$Context
+   from-ui :- clojure.core.async.impl.channels.ManyToManyChannel
+   to-ui :- clojure.core.async.impl.channels.ManyToManyChannel
+   cmd :- clojure.core.async.impl.channels.ManyToManyChannel]
   (let [ ;; read/write threads really need the capability to communicate
         r->w (async/chan)
         w->r (async/chan)
