@@ -2,6 +2,8 @@
   (:require [clojure.core.async :as async]
             [taoensso.timbre :as log]))
 
+;;;; FIXME: Move this under input/
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schema
 

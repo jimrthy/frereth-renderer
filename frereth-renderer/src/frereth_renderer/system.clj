@@ -7,6 +7,7 @@
             [frereth-renderer.config :as config]
             [frereth-renderer.fsm :as fsm]
             [frereth-renderer.graphics :as graphics]
+            [frereth-renderer.input.core :as input]
             [frereth-renderer.logging :as logging]
             [frereth-renderer.persist.core :as persistence]
             [frereth-renderer.session
@@ -31,7 +32,7 @@
 
   (component/system-map
    :application (application/new-application)
-   :background-threads (graphics/new-background-threads {})
+   ;;:background-threads (graphics/new-background-threads {})
    :channels (comm/new-channels)
    ;; TODO: These next pieces are wrong. There should
    ;; be a many-to-many relationship among renderers and
@@ -41,7 +42,7 @@
    :client (client/init cfg)
    :client-socket (comm/new-client-socket)
    :client-url (comm/new-client-url cfg)
-   :communications-thread (graphics/new-communication-thread)
+   :communications-thread (input/new-communication-thread)
    :context (comm/new-context)
    :coupling (comm/new-coupling)
    ;; :eye-candy-thread (graphics/new-eye-candy-thread)
@@ -61,9 +62,10 @@
 (defn dependencies
   [base]
   {:application [:session]
-   :background-threads [:communications-thread
-                        ;;:eye-candy-thread
-                        ]
+   ;;:background-threads
+   #_[:communications-thread
+    ;;:eye-candy-thread
+    ]
    :channels [:logging]
    :client-socket {:url :client-url,
                    :context :context}
@@ -72,11 +74,12 @@
    :context [:logging]
    :coupling [:context :channels]
    ;;:eye-candy-thread [:visualizer]
-   :graphics [:background-threads :fsm]
+   ;; TODO: graphics absolutely should not depend
+   ;; on communications.
+   ;; Although it *does* impact the FSM
+   :graphics [:communications-thread :fsm]
    :persistence [:session-manager]
-   :session [:coupling
-             :message-coupling
-             :persistence]
+   :session [:persistence]
    :visualizer {:logging :logging
                 :session :session}})
 

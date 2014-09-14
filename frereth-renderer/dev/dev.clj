@@ -68,4 +68,8 @@ Can't just call this go: that conflicts with a macro from core.async."
   ;; ever to get a REPL working there internally.
   ;; But I don't need it yet.
   (comment (raise :currently-broken))
-  (refresh :after 'dev/go-go))
+  (try
+    (refresh :after 'dev/go-go)
+    (catch clojure.lang.ExceptionInfo ex
+      (pprint ex)
+      (println "Refresh failed"))))

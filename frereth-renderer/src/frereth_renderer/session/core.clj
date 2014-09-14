@@ -4,7 +4,7 @@
             [frereth-renderer.persist.core :as persist]
             [frereth-renderer.persist.query :as query]
             [frereth-renderer.session.manager :as manager]
-            [ribol.core :refer (raise)]
+            [ribol.core :refer (manage on raise)]
             [schema.core :as s]
             [schema.macros :as sm])
   (:import [frereth_renderer.persist.core Database])
@@ -18,9 +18,10 @@
                        position :- geometry/Rectangle
                        id :- s/Uuid
                        ;; Q: Does any of the rest of this belong in here?
-                       message-coupling
-                       fsm
-                       update-function]
+                       ;;message-coupling
+                       ;;fsm
+                       ;;update-function
+                       ]
   ;; As-is, it's tempting to make this a plain-ol' map.
   ;; There are pieces that I definitely want/need to
   ;; implement here.
@@ -30,14 +31,12 @@
   (start [this]
          (let [delta (if id
                        (query/load-previous-session persistence id)
-                       ;; TODO: Don't overwrite any settings that have
-                       ;; already been supplied
-                       ({:title "Unknown"
-                         :position {:left 0
-                                    :top 0
-                                    :width 800
-                                    :height 600}
-                         :id (persist/new-id)}))]
+                       {:title "Unknown"
+                        :position {:left (:left position 0)
+                                   :top (:top position 0)
+                                   :width (:width position 800)
+                                   :height (:height position 600)}
+                        :id (persist/new-id)})]
            (into this delta)))
 
   (stop [this]
@@ -64,10 +63,14 @@
   "This is pretty horribly over-simplified.
 But it's a start
 "
-  [{:keys [width height title update-function]
-    :or {width 1024
+  [{:keys [left top width height title update-function]
+    :or {left 0
+         top 0
+         width 1024
          height 768
          title "Frereth"}}]
-  (map->Session {:width width
-                 :height height
+  (map->Session {:position {:left left
+                            :top top
+                            :width width
+                            :height height}
                  :title title}))

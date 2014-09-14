@@ -1,15 +1,47 @@
 (ns frereth-renderer.persist.query
-  (:require [datomic.api :as d]
+  (:require [clojure.pprint :refer (pprint)]
+            [datomic.api :as d]
             [frereth-renderer.geometry :as geometry]
             [frereth-renderer.persist.core :as persist]
             [ribol.core :refer (raise)]
             [schema 
              [core :as s]
-             [macros :as sm]])
+             [macros :as sm]]
+            [taoensso.timbre :as log])
   (:import [frereth_renderer.persist.core Database]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Schema
+
+(def Query {:find [s/Symbol]
+            (s/optional-key :in) [s/Symbol]
+            ;; getting the where clause right seems
+            ;; like more trouble than it's worth
+            :where [[s/Any]]})
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Helpers
+
+(sm/defn run-query
+  [db :- Database
+   q :- Query
+   & args]
+  (try
+    (if args
+      (apply d/q q db args)
+      (d/q q db))
+    (catch Exception ex
+            ;; Logging here is probably redundant.
+            ;; Make it go away if/when it gets annoying.
+            (log/error ex "Running\n"
+                       (with-out-str (pprint q))
+                       "\nwith\n"
+                       (with-out-str (pprint args)))
+            (raise [:query-failure
+                    :reason ex
+                    :query q
+                    :args args
+                    :database db]))))
 
 (defn load-previous-session-query
   []
@@ -37,15 +69,18 @@
 (sm/defn load-previous-session
   [db :- Database
    id :- s/Uuid]
-  (let [q (load-previous-session-query)
-        pk (first (d/q q db id))
-        entity (d/entity pk)]
-    {:pk pk
-     :title (:name entity)
-     :position {:left (:screen/left entity)
-                :top (:screen/top entity)
-                :width (:screen/width entity)
-                :height (:screen/height entity)}}))
+  (let [q (load-previous-session-query)]
+    (try
+      (let [pk (first (run-query db q id))
+            entity (d/entity pk)]
+        {:pk pk
+         :title (:name entity)
+         :position {:left (:screen/left entity)
+                    :top (:screen/top entity)
+                    :width (:screen/width entity)
+                    :height (:screen/height entity)}})
+      (catch Exception ex
+        (log/error ex "Failed to run query:\n" q)))))
 
 (sm/defn do-update-session-settings
   [db
