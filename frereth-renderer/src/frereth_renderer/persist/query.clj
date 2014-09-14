@@ -25,15 +25,17 @@
                      :screen/top [(:top position1) (:top position2)]
                      :screen/width [(:width position1) (:width position2)]
                      :screen/height [(:height position1) (:height position2)]}]
-    (filter (fn [[k v]]
-              (not= (first v) (second v)))
-            preliminary)))
+    (reduce (fn [acc [k [_ altered]]]
+              (assoc acc k altered))
+            (filter (fn [[k v]]
+                      (not= (first v) (second v)))
+                    preliminary))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
 
 (sm/defn load-previous-session
-  [db :as Database
+  [db :- Database
    id :- s/Uuid]
   (let [q (load-previous-session-query)
         pk (first (d/q q db id))

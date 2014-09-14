@@ -4,9 +4,10 @@
             [frereth-renderer.persist.core :as persist]
             [frereth-renderer.persist.query :as query]
             [frereth-renderer.session.manager :as manager]
+            [ribol.core :refer (raise)]
             [schema.core :as s]
             [schema.macros :as sm])
-  (:import [frereth-renderer.persist.core Database])
+  (:import [frereth_renderer.persist.core Database])
   (:gen-class))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -59,7 +60,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
 
-(defn new-session
+(defn init
   "This is pretty horribly over-simplified.
 But it's a start
 "

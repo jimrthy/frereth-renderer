@@ -8,7 +8,8 @@
              [core :as s]
              [macros :as sm]]
             [taoensso.timbre :as log])
-  (:import [frereth_renderer.session.manager SessionManager]))
+  (:import [frereth_renderer.session.manager SessionManager])
+  (:gen-class))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schema
