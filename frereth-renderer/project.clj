@@ -45,8 +45,15 @@ java.library.path and that's good enough."
                  [com.badlogicgames.gdx/gdx-platform "1.3.1"
                   :classifier "natives-desktop"]
                  [com.cemerick/pomegranate "0.3.0"]
+                 ;; clojars claims that it has this available for download
+                 [com.datomic/datomic-free "0.9.4899"]
                  [com.stuartsierra/component "0.2.2"]
                  [com.taoensso/timbre "3.2.1"]
+                 ;; I want something like the next line, but it somehow
+                 ;; manages to make hiccup conflict with itself
+                 ;; (I blame this complicated project, not the library
+                 ;; I want to use)
+                 ;[datomic-schema-grapher "0.0.1"]
                  [frereth-client "0.1.0-SNAPSHOT"]
                  [im.chit/ribol "0.4.0"]
                  ;;[jimrthy/cljeromq "0.1.0-SNAPSHOT"]

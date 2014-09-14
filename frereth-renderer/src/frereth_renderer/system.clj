@@ -8,6 +8,10 @@
             [frereth-renderer.fsm :as fsm]
             [frereth-renderer.graphics :as graphics]
             [frereth-renderer.logging :as logging]
+            [frereth-renderer.persist.core :as persistence]
+            [frereth-renderer.session
+             [core :as session]
+             [manager :as session-manager]]
             [schema.core :as s]
             [taoensso.timbre :as log])
   (:gen-class))
@@ -49,7 +53,9 @@
    ;; A: Looks like this was supposed to be for the communications-thread.
    ;; That has an atom for holding command and terminator channels.
    ;; Honestly, it's a fairly muddled mess that I need to rethink.
-   :session (application/new-session {:title "I did something different"})
+   :persistence (persistence/new-database)
+   :session (session/init {:title "I did something different"})
+   :session-manager (session-manager/init {:config cfg})
    :visualizer (graphics/new-visualizer)))
 
 (defn dependencies
@@ -67,7 +73,10 @@
    :coupling [:context :channels]
    ;;:eye-candy-thread [:visualizer]
    :graphics [:background-threads :fsm]
-   :session {:message-coupling :coupling}
+   :persistence [:session-manager]
+   :session [:coupling
+             :message-coupling
+             :persistence]
    :visualizer {:logging :logging
                 :session :session}})
 

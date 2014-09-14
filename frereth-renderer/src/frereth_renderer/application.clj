@@ -4,6 +4,7 @@
             LwjglApplication])
   (:require [com.stuartsierra.component :as component]
             [frereth-renderer.graphics :as graphics]
+            [frereth-renderer.persist.core :as persist]
             [play-clj.core :as play-clj]
             [schema.core :as s]
             [schema.macros :as sm]
@@ -11,29 +12,6 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schema
-
-(sm/defrecord Session [left :- s/Int
-                       top :- s/Int
-                       width :- s/Int
-                       height :- s/Int
-                       title :- s/Str
-                       message-coupling
-                       fsm
-                       update-function]
-  ;; As-is, it's tempting to make this a plain-ol' map.
-  ;; There are pieces that I definitely want/need to
-  ;; implement here.
-  ;; It might qualify as YAGNI, but I definitely want
-  ;; to implement them soon.
-  component/Lifecycle
-  (start [this]
-         ;; TODO: Also remember window positions from last run and reset them here.
-         (log/warn "Restore the previous session")
-         this)
-
-  (stop [this]
-        (log/warn "Save session for restoring next time")
-        this))
 
 ;;; TODO: Doing this here breaks most of the point behind play-clj,
 ;;; quite horribly.
@@ -68,16 +46,4 @@
 (defn new-application
   []
   (map->App {}))
-
-(defn new-session
-  "This is pretty horribly over-simplified.
-But it's a start
-"
-  [{:keys [width height title update-function]
-    :or {width 1024
-         height 768
-         title "Frereth"}}]
-  (map->Session {:width width
-                 :height height
-                 :title title}))
 
