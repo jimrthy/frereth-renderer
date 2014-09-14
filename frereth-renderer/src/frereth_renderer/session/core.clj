@@ -6,7 +6,8 @@
             [frereth-renderer.session.manager :as manager]
             [schema.core :as s]
             [schema.macros :as sm])
-  (:import [frereth-renderer.persist.core Database]))
+  (:import [frereth-renderer.persist.core Database])
+  (:gen-class))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schema

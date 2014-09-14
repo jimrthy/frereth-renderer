@@ -1,14 +1,16 @@
 (ns frereth-renderer.application
-  (:import [com.badlogic.gdx Application Game]
-           [com.badlogic.gdx.backends.lwjgl
-            LwjglApplication])
   (:require [com.stuartsierra.component :as component]
             [frereth-renderer.graphics :as graphics]
             [frereth-renderer.persist.core :as persist]
+            [frereth-renderer.session.core :as session]
             [play-clj.core :as play-clj]
             [schema.core :as s]
             [schema.macros :as sm]
-            [taoensso.timbre :as log]))
+            [taoensso.timbre :as log])
+  (:import [com.badlogic.gdx Application Game]
+           [com.badlogic.gdx.backends.lwjgl
+            LwjglApplication]
+           [frereth_renderer.session.core Session]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schema

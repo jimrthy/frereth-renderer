@@ -1,11 +1,14 @@
 (ns frereth-renderer.persist.core
-  (:require [datomic.api :as d]
+  (:require [clojure.pprint :refer (pprint)]
+            [com.stuartsierra.component :as component]
+            [datomic.api :as d]
             [frereth-renderer.persist.schema :as schema]
             [frereth-renderer.session.manager :as session-manager]
             [schema
              [core :as s]
-             [macros :as sm]])
-  (:import [frereth-renderer.session.manager SessionManager]))
+             [macros :as sm]]
+            [taoensso.timbre :as log])
+  (:import [frereth_renderer.session.manager SessionManager]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schema
