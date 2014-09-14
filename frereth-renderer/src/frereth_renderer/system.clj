@@ -70,7 +70,7 @@
    :client-socket {:url :client-url,
                    :context :context}
    :client-url [:logging]
-   :communications-thread [:visualizer]
+   :communications-thread [:fsm :visualizer]
    :context [:logging]
    :coupling [:context :channels]
    ;;:eye-candy-thread [:visualizer]

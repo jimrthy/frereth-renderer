@@ -7,6 +7,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schema
 
+(declare pick-log-file-name)
 (defrecord Logger []
   component/Lifecycle
 
@@ -22,7 +23,7 @@
       :fn rotor/append})
     (log/set-config!
      [:shared-appender-config :rotor]
-     {:path "logs/app.log" :max-size (* 512 1024) :backlog 5})
+     {:path (pick-log-file-name) :max-size (* 512 1024) :backlog 5})
     (log/warn "FIXME: Log to a database instead")
     this)
 
@@ -31,6 +32,14 @@
     ;; Q: How do I actually disable loggers?
     (log/warn "Stopping logging...but not really")
     this))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Utilities
+
+(defn pick-log-file-name
+  []
+  ;; FIXME: Be smarter about this
+  "/home/james/.config/frereth/logs/app.log")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public

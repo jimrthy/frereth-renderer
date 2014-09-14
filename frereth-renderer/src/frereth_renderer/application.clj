@@ -4,6 +4,7 @@
             [frereth-renderer.persist.core :as persist]
             [frereth-renderer.session.core :as session]
             [play-clj.core :as play-clj]
+            [ribol.core :refer (raise)]
             [schema.core :as s]
             [schema.macros :as sm]
             [taoensso.timbre :as log])
@@ -23,20 +24,35 @@
 (sm/defrecord App [listener owner :- Application session :- Session]
   component/Lifecycle
   (start [this]
-         (let [game (proxy [Game] []
-                      ;; This is a convenient way to handle things.
-                      ;; Except that it feels wrong.
-                      ;; It seems like I should be using the FSM
-                      ;; to control transitions from one screen
-                      ;; to the next.
-                      (create []
-                        (play-clj/set-screen! graphics/initial-splash)))
-          title (:title session)
-          width (:width session)
-          height (:height session)
-          app (LwjglApplication. game title width height)]
-      (into this {:listener game
-                  :owner app})))
+         (log/info "Initializing Main Window")
+         (try
+           (let [game (proxy [Game] []
+                        ;; This is a convenient way to handle things.
+                        ;; Except that it feels wrong.
+                        ;; It seems like I should be using the FSM
+                        ;; to control transitions from one screen
+                        ;; to the next.
+                        (create []
+                          (play-clj/set-screen! graphics/initial-splash)))
+                 title (:title session)
+                 width (:width session)
+                 height (:height session)
+                 app (LwjglApplication. game title width height)]
+             (log/info "Main window initialized")
+             (into this {:listener game
+                         :owner app}))
+           (catch RuntimeException ex
+             (log/error ex "Setting up the Application failed")
+             (raise [:app/runtime-initialization
+                     {:reason ex}]))
+           (catch Exception ex
+             (log/error ex "Unexpeted error setting up Application")
+             (raise [:app/base-initialization
+                     {:reason ex}]))
+           (catch Throwable ex
+             (log/error ex "*Really* unexpected error setting up Application")
+             (raise [:app/thrown-initialization
+                     {:reason ex}]))))
   (stop [this]
         (.exit owner)
         (into this {:listener nil
