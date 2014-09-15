@@ -21,7 +21,7 @@
   (start [this]
          (let [uri (:datomic-url session-manager)]
            (when (d/create-database uri)
-             (log/info "Creating new database")
+             (log/info "Creating new database at " uri)
              (let [txn (schema/define)]
                (try
                  (let [success (d/transact txn)]

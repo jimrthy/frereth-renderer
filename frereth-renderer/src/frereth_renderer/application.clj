@@ -55,8 +55,16 @@
                      (log/error ex "Well, at least I made it past App setup")
                      (raise [:application-failure
                              {:reason ex}]))))
+               (catch java.lang.IllegalStateException ex
+                 (log/error ex "Illegal State:\n"
+                            (.getMessage ex)))
                (catch RuntimeException ex
-                 (log/error ex "Problem definitely stems from trying to set up the Application")
+                 (log/error ex "Problem definitely stems from trying to set up the Application\n"
+                            "Game: " game
+                            "\nTitle: " title
+                            "\nWidth: " width
+                            "\nHeight: " height
+                            "\nException: " (with-out-str (pprint ex)))
                  (raise [:application-failure
                          :reason ex]))))
            (catch RuntimeException ex
