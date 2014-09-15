@@ -4,9 +4,6 @@
             [com.stuartsierra.component :as component]
             [frereth-renderer.events :as events]
             [frereth-renderer.fsm :as fsm]
-            #_[penumbra.app :as app]
-            #_[penumbra.app.core :as core]
-            #_[penumbra.opengl :as gl]
             [play-clj.core :as play-clj]
             [play-clj.g2d :as g2d]
             [play-clj.g3d :as g3d]
@@ -15,7 +12,8 @@
             [ribol.core :refer (manage on raise)]
             [schema.core :as s]
             [schema.macros :as sm]
-            [taoensso.timbre :as log]))
+            [taoensso.timbre :as log])
+  (:gen-class))
 
 ;;;; FIXME: This namespace is getting too big. How much can I split out
 ;;;; into smaller pieces?
@@ -37,15 +35,32 @@
     (async/close! channel)
     (assoc this :channel nil)))
 
+(declare build-hud build-main-3d)
 (defrecord Graphics
-    [fsm client-heartbeat-thread]
+    [client-heartbeat-thread fsm
+     screen entities
+     hud main-view-3d]
   component/Lifecycle
   (start [this]
     (fsm/send-transition fsm :disconnect)
-    this)
+    (let [screen-atom (if screen
+                        screen
+                        (atom {}))
+          entities-atom (if entities
+                          entities
+                          (atom []))
+          hud (build-hud screen-atom entities-atom)
+          main-view-3d (build-main-3d fsm screen-atom entities-atom)]
+      (into this {:screen screen-atom
+                  :entities entities-atom
+                  :hud hud
+                  :main-view-3d main-view-3d})))
   (stop [this]
     (fsm/send-transition fsm :cancel)
-    this))
+    (reset! screen {})
+    (reset! entities [])
+    (into this {:hud nil
+                :main-view-3d nil})))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Information
@@ -351,20 +366,6 @@ I'm trying to remember/figure out how all the pieces fit together."
   ;; I'm guessing that the error handling is ruining that.
   )
 
-(defn fps->millis
-  "Silly utilitiy function. At x frames per second, each individual
-frame should be on the screen for y milliseconds.
-FIXME: This should go away completely. Penumbra already has
-utility functions that handle this better.
-
-I think what I'm looking for there is update callbacks:
-penumbra.app/periodic-update!
-which takes a frequency and callback-fn
-where frequency is the # of times/second that callback-fn
-should be called."
-  [fps]
-  (Math/round (float (* (/ 1 fps) 1000))))
-
 ;; FIXME: This next function is almost totally obsolete. Except that I desperately
 ;; need something to track the FSM.
 ;; IOW: keep the code around until I get it refactored into actually making that work.
@@ -442,33 +443,88 @@ should be called."
   (draw state)
   (comment (app/repaint!)))
 
-;;; This strongly feels like it violates the entire
-;;; Components contract. But this is a defonce, so
-;;; it doesn't seem totally awful.
-;;; Q: How can I make this reset?
-(comment (defgame frereth-renderer
-           :on-create
-           (fn [this]
-             (set-screen! this ))))
-;;; A: That creates a proxy for com.badlogic.gdx.Game,
-;;; calling the on-create event during its (create)
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
 
 ;;; Basic Drawing
 
-;; Used from within application
-(play-clj/defscreen initial-splash
-  :on-show
-  (fn [screen entities]
-    (play-clj/update! screen :renderer (play-clj/stage))
-    (play-ui/label "Loading..." (play-clj/color :yellow)))
+;; Used from within the application ns to set up the Game
+(comment (play-clj/defscreen initial-splash
+           :on-show
+           (fn [screen entities]
+             (play-clj/update! screen :renderer (play-clj/stage))
+             (play-ui/label "Loading..." (play-clj/color :yellow)))
 
-  :on-render
-  (fn [screen entities]
-    (play-clj/clear!)
-    (play-clj/render! screen entities)))
+           :on-render
+           (fn [screen entities]
+             (play-clj/clear!)
+             (play-clj/render! screen entities))))
+
+(defn build-hud
+  [screen-atom
+   entities-atom]
+  (log/debug "Building the HUD around " screen-atom " and " entities-atom)
+  (play-clj/defscreen* screen-atom entities-atom
+    {:on-show (fn [screen entities]
+                (play-clj/update! screen
+                                  :camera (play-clj/orthographic)
+                                  :renderer (play-clj/stage))
+                (assoc (play-clj.ui/label "0" (play-clj/color :white)
+                              :id :fps
+                              :x 5)))
+     :on-render
+     (fn [screen entities]
+       (->> (for [entity entities]
+              (case (:id entity)
+                :fps (doto entity (play-clj.ui/label! :set-text (str (play-clj/game :fps))))
+                entity))
+            (play-clj/render! screen)))
+
+     :on-resize
+     (fn [screen _]
+       (play-clj/height! screen 768))}))
+
+(defn build-main-3d
+  [fsm
+   screen-atom
+   entities-atom]
+  (play-clj/defscreen* screen-atom entities-atom
+    {:on-show 
+     (fn [screen entities]
+       (play-clj/update! screen
+                         :renderer (play-clj.g3d/model-batch)
+                         :attributes (let [attr-type (play-clj.g3d/attribute-type :color :ambient-light)
+                                           attr (play-clj.g3d/attribute :color attr-type 0.8 0.8 0.8 1)]
+                                       (play-clj.g3d/environment :set attr))
+                         :camera (doto (play-clj/perspective 75
+                                                             (play-clj/game :width)
+                                                             (play-clj/game :height))
+                                   (play-clj/position! 0 0 3)
+                                   (play-clj/direction! 0 0 0)
+                                   (play-clj/near! 0.1)
+                                   (play-clj/far! 300)))
+       (let [attr (play-clj.g3d/attribute! :color :create-diffuse (play-clj/color :blue))
+             model-mat (play-clj.g3d/material :set attr)
+             model-attrs (bit-or (play-clj/usage :position) (play-clj/usage :normal))
+             builder (play-clj.g3d/model-builder)]
+         (-> (play-clj.g3d/model-builder! builder
+                                          :create-box
+                                          2 2 2
+                                          model-mat
+                                          model-attrs)
+             play-clj.g3d/model
+             (assoc :x 0 :y 0 :z 0))))
+
+     :on-render
+     (fn [screen entities]
+       (play-clj/clear! 1 0 1 1)
+       (doto screen
+         (play-clj/perspective! :rotate-around
+                                (play-clj.math/vector-3 0 0 0)
+                                (play-clj.math/vector-3 0 1 1)
+                                1)
+         (play-clj/perspective! :update))
+       (play-clj/render! screen entities))}))
 
 ;;; Initialization (these should really all go away)
 
