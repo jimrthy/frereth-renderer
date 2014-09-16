@@ -22,9 +22,10 @@
          (let [uri (:datomic-url session-manager)]
            (when (d/create-database uri)
              (log/info "Creating new database at " uri)
-             (let [txn (schema/define)]
+             (let [db (d/connect uri)
+                   txn (schema/define)]
                (try
-                 (let [success (d/transact txn)]
+                 (let [success (d/transact db txn)]
                    (log/info "Installing schema:\n"
                              (with-out-str (pprint @success))))
                  (catch clojure.lang.ExceptionInfo ex
@@ -32,6 +33,10 @@
                               (with-out-str (pprint txn)))
                    (raise [:persistence-failure
                            {:reason ex}])))))
+           ;; I've read that the connections are actually
+           ;; quite cheap.
+           ;; TODO: Check that. Although it's not like this
+           ;; is an inner loop.
            (into this {:connection (d/connect uri)})))
   (stop [this]
         (assoc this :connection nil)))

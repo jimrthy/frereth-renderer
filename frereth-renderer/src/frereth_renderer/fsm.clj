@@ -145,10 +145,11 @@ OTOH...it can be extremely convenient"
   (if fsm-agent
     (if-let [^RuntimeException ex (agent-error fsm-agent)]
       (do
-        (log/trace "Agent is in an error state")
-        ;; Q: What should I be doing here to avoid the
-        ;; reflection warning?
-        (pprint (.data ex)))
+        (log/warn "Agent is in an error state\n"
+                  (.getMessage ex)
+                  (with-out-str (pprint (.getStackTrace ex))
+                    (pprint (.getCause ex)))
+                  "\n" (.toString ex)))
       (if-let [m @fsm-agent]
         (do
           (comment (log/trace "Agent state is just fine, thank you"))

@@ -47,7 +47,7 @@ communications dispatcher thread\nState:\n"
           communications-thread
           (async/go
            (try
-             (loop [[c msg] (async/alts! client-channel stopper)]
+             (loop [[c msg] (async/alts! [client-channel stopper])]
                ;; Check for channel closed
                (when-not (nil? msg)
                  (log/trace "Control Message:\n" msg)

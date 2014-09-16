@@ -469,9 +469,9 @@ I'm trying to remember/figure out how all the pieces fit together."
                 (play-clj/update! screen
                                   :camera (play-clj/orthographic)
                                   :renderer (play-clj/stage))
-                (assoc (play-clj.ui/label "0" (play-clj/color :white)
-                              :id :fps
-                              :x 5)))
+                (assoc (play-clj.ui/label "0" (play-clj/color :white))
+                  :id :fps
+                  :x 5))
      :on-render
      (fn [screen entities]
        (->> (for [entity entities]

@@ -42,7 +42,31 @@
                         ;; to control transitions from one screen
                         ;; to the next.
                         (create []
-                          (play-clj/set-screen! #_main-view-3d hud)))]
+                          (comment (log/info "Trying to associate the Main 3-D View:\n"
+                                             (with-out-str (pprint main-view-3d))
+                                             "\nand the HUD:\n"
+                                             (with-out-str (pprint hud))
+                                             "\nas the screens to\n"
+                                             (with-out-str (pprint this))))
+                          (log/info "Associating screens w/ game")
+                          (try
+                            (play-clj/set-screen! this main-view-3d hud)
+                            (catch clojure.lang.ExceptionInfo ex
+                              (log/error ex "Failed to associate screens with game")
+                              (raise [:screen-association-failure
+                                      {:reason ex}]))
+                            (catch RuntimeException ex
+                              (log/error ex "'Normal' runtime failure")
+                              (raise [:screen-association-failure
+                                      {:reason ex}]))
+                            (catch Exception ex
+                              (log/error ex "Unexpected failure")
+                              (raise [:screen-association-failure
+                                      {:reason ex}]))
+                            (catch Throwable ex
+                              (log/error ex "Totally unexpected")
+                              (raise [:screen-association-failure
+                                      {:reason ex}])))))]
              (log/info "Game Listener created. Associating Session:\n"
                        (with-out-str (pprint session)))
              (try
@@ -89,7 +113,14 @@
              (raise [:app/thrown-initialization
                      {:reason ex}]))))
   (stop [this]
-        (.exit owner)
+        (.exit owner)  ; Sadly, this doesn't seem to work
+        ;; Actually, this just ends the "Activity" (in the Android
+        ;; view of the world).
+        ;; So it isn't doing what I hoped/expected.
+        ;; TODO:
+        ;; Update the LwjglApplicationConfiguration to change
+        ;; forceExit = false
+        ;; (it's for some obscure Webstart bug on the Mac)
         (into this {:listener nil
                     :owner nil})))
 

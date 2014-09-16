@@ -48,7 +48,7 @@ java.library.path and that's good enough."
                  ;; clojars claims that it has this available for download
                  [com.datomic/datomic-free "0.9.4899"]
                  [com.stuartsierra/component "0.2.2"]
-                 [com.taoensso/timbre "3.2.1"]
+                 [com.taoensso/timbre "3.3.1"]
                  ;; I want something like the next line, but it somehow
                  ;; manages to make hiccup conflict with itself
                  ;; (I blame this complicated project, not the library

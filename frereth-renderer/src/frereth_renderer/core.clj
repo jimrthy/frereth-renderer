@@ -3,6 +3,7 @@
             [com.stuartsierra.component :as component]
             [frereth-renderer.graphics :as graphics]
             [frereth-renderer.system :as sys]
+            [ribol.core :refer (raise)]
             [taoensso.timbre :as log])
   (:gen-class))
 
@@ -26,6 +27,8 @@
             #_(:front-end world))
       (comment (.join @(:front-end world)))
       (comment (deref @(:front-end world)))
+      (raise [:not-implemented
+              {:message "*This* is what that terminator channel is for"}])
       (let [terminal-channel (-> world :messaging deref :terminator)]
         (async/<!! terminal-channel))
       (log/info "Graphics thread has exited")
@@ -34,5 +37,7 @@
       ;; I'm getting here almost instantly. Meaning that front-end
       ;; apparently isn't getting set to anything that seems reasonable.
       (finally
+        (log/info "Exiting")
         (component/stop world)
-        (shutdown-agents)))))
+        (shutdown-agents)
+        (log/info "Exited")))))
