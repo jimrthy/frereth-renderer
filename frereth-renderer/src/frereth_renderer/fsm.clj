@@ -88,7 +88,12 @@ TODO: Would core.async be more appropriate than agents?"
                     :__pre-init {:edges {:init {:next-state :__init}
                                          :cancel {:next-state :__dead}}}
                     :__init nil}
-        mgr (agent {:__state :__pre-init})
+        mgr (agent {:__state :__pre-init}
+                   :error-mode :continue
+                   :error-handler (fn [the-agent ex]
+                                    (log/error ex "Agent should transition to an error state")
+                                    ;; Q: What makes sense here?
+                                    (set-error-mode! the-agent :fail)))
         base-line {:initial-description hard-coded
                    :manager mgr
                    :initial-state initial-state}]
