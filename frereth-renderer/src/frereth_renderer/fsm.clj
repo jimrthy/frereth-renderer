@@ -32,6 +32,8 @@
   component/Lifecycle
   (start
    [this]
+   (log/debug "Starting the FSM. Manually adjusting the Manager from\n"
+              (util/pretty @manager) "\nto\n" initial-state)
    ;; This is getting a little annoying in my debugging. I'm more
    ;; than a little tempted to turn this into a class where I get to
    ;; control its printed output. That seems like a really stupid
@@ -87,9 +89,11 @@ TODO: Would core.async be more appropriate than agents?"
                                          :cancel {:next-state :__dead}}}
                     :__init nil}
         mgr (agent {:__state :__pre-init})
-        base-line {:description hard-coded
-                   :manager mgr}]
+        base-line {:initial-description hard-coded
+                   :manager mgr
+                   :initial-state initial-state}]
     (if states
+      ;; TODO: Refactor this into its own method so I can unit test it.
       (let [initial-pairs (map (fn [[k v]]
                                  [k (strict-map->State {:edges v})])
                                states)]
@@ -101,8 +105,8 @@ TODO: Would core.async be more appropriate than agents?"
                                 (into initial-map
                                       hard-coded))]
           (strict-map->FiniteStateMachine
-           (assoc base-line :initial-state initial-state))))
-      (do (log/debug "Creating the FSM with no initial states. This will probably backfire")
+           (assoc-in base-line [:description] descr))))
+      (do (log/debug "Creating an empty FSM. This will probably backfire")
           (map->FiniteStateMachine base-line)))))
 
 (defn transition-agent [prev transition-key error-if-unknown]

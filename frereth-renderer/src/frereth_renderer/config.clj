@@ -29,3 +29,20 @@ save it manually."}])))))
   []
   {:client-url (client-url)
    :config-file (find-configuration-file)})
+
+(defn default-fsm
+  "My plan is that this is just for testing and the REPL.
+It would probably make more sense to move this into the fsm
+ns and just use it as the default"
+  []
+  {:disconnected
+   {:client-connect-without-server [nil :waiting-for-server]
+    :client-connect-with-server    [nil :waiting-for-home-page]
+    :client-connect-with-home-page [nil :main-life]}
+   :waiting-for-server
+   {:client-disconnect             [nil :disconnected]}
+   :server-connected
+   {:waiting-for-home-page         [nil :main-life]
+    :client-disconnect             [nil :disconnected]}
+   :main-life
+   {:client-disconnect             [nil :disconnected]}})

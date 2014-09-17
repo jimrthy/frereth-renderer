@@ -26,6 +26,8 @@
       (log/info "Waiting on the front-end thread to exit. Value in the atom:\n"
             #_(:front-end world))
       (comment (.join @(:front-end world)))
+      ;; N.B. There *is* a :terminator channel, inside (:channels world)
+      ;; TODO: Go back to reading from it instead.
       (comment (deref @(:front-end world))
                (raise [:not-implemented
                        {:message "*This* is what that terminator channel is for"}])

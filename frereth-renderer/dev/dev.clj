@@ -10,6 +10,7 @@
             ;;[datomic-schema-grapher.core :refer (graph-datomic)]
             ;;[dynalint.lint :as dyn]
             [frereth-renderer.communications :as comm]
+            [frereth-renderer.config :as cfg]
             [frereth-renderer.graphics :as graphics]
             [frereth-renderer.system :as system]
             [ribol.core :refer (raise)]))
@@ -23,17 +24,7 @@
   (comment (dyn/lint))
 
   ;; TODO: Put these in the database
-  (let [fsm-descr {:disconnected
-                   {:client-connect-without-server [nil :waiting-for-server]
-                    :client-connect-with-server    [nil :waiting-for-home-page]
-                    :client-connect-with-home-page [nil :main-life]}
-                   :waiting-for-server
-                   {:client-disconnect             [nil :disconnected]}
-                   :server-connected
-                   {:waiting-for-home-page         [nil :main-life]
-                    :client-disconnect             [nil :disconnected]}
-                   :main-life
-                   {:client-disconnect             [nil :disconnected]}}]
+  (let [fsm-descr (cfg/default-fsm)]
     (alter-var-root #'system
                     (constantly (system/build {:fsm-description fsm-descr
                                                :initial-state :disconnected})))))

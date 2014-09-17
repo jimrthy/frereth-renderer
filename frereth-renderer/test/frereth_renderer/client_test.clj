@@ -3,6 +3,7 @@
             [clojure.pprint :refer [pprint]]
             [com.stuartsierra.component :as component]
             [frereth-renderer.communications :as comms]
+            [frereth-renderer.config :as cfg]
             [frereth-renderer.events :as e]
             [frereth-renderer.fsm :as fsm]
             [frereth-renderer.graphics :as g]
@@ -17,7 +18,7 @@
        ;; This is almost a test of the FSM, but I need *something*
        ;; to try to exercise some of the renderer code.
        ;; Honestly, these messages should be going to the 
-       (let [initial (sys/build {})
+       (let [initial (sys/build {:fsm-description (cfg/default-fsm)})
              alive (component/start initial)]
          (try
            ;; TODO: These commands should be going over the external
