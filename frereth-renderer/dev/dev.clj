@@ -8,6 +8,7 @@
             [clojure.tools.namespace.repl :refer (refresh refresh-all)]
             [com.stuartsierra.component :as component]
             ;;[datomic-schema-grapher.core :refer (graph-datomic)]
+            ;;[dynalint.lint :as dyn]
             [frereth-renderer.communications :as comm]
             [frereth-renderer.graphics :as graphics]
             [frereth-renderer.system :as system]
@@ -19,6 +20,7 @@
   "Constructs the current development system."
   []
   (set! *print-length* 50)
+  (comment (dyn/lint))
 
   ;; TODO: Put these in the database
   (let [fsm-descr {:disconnected

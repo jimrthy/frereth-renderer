@@ -13,6 +13,7 @@
             [frereth-renderer.session
              [core :as session]
              [manager :as session-manager]]
+            [frereth-renderer.util :as util]
             [schema.core :as s]
             [taoensso.timbre :as log])
   (:gen-class))
@@ -28,7 +29,7 @@
   "Generate a dead system"
   [cfg]
   (set! *warn-on-reflection* true)
-  (log/info "INIT")
+  (log/info "INIT\n" (util/pretty cfg))
 
   (component/system-map
    :application (application/new-application)
@@ -45,7 +46,7 @@
    :client-heartbeat-thread (input/new-client-connection-thread)
    :context (comm/new-context)
    :coupling (comm/new-coupling)
-   ;; :eye-candy-thread (graphics/new-eye-candy-thread)
+   :done (promise)
    :fsm (fsm/init (:fsm-description cfg)
                   (:initial-state cfg))
    :graphics (graphics/init)

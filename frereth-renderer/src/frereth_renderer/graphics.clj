@@ -1,9 +1,9 @@
 (ns frereth-renderer.graphics
   (:require [clojure.core.async :as async]
-            [clojure.pprint :refer (pprint)]
             [com.stuartsierra.component :as component]
             [frereth-renderer.events :as events]
             [frereth-renderer.fsm :as fsm]
+            [frereth-renderer.util :as util]
             [play-clj.core :as play-clj]
             [play-clj.g2d :as g2d]
             [play-clj.g3d :as g3d]
@@ -13,6 +13,7 @@
             [schema.core :as s]
             [schema.macros :as sm]
             [taoensso.timbre :as log])
+  (:import [frereth_renderer.fsm FiniteStateMachine])
   (:gen-class))
 
 ;;;; FIXME: This namespace is getting too big. How much can I split out
@@ -21,8 +22,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schema
 
-;;; Q: What's the actual difference between these?
-
+;;; Q: What's the point to this?
 (defrecord Visualizer [channel logging session]
   component/Lifecycle
   (start
@@ -32,17 +32,38 @@
     (assoc this :channel (async/chan)))
   (stop
     [this]
-    (async/close! channel)
+    (if channel
+      (async/close! channel)
+      (log/warn "No Visualizer Channel to stop"))
     (assoc this :channel nil)))
 
 (declare build-hud build-main-3d)
-(defrecord Graphics
-    [client-heartbeat-thread fsm
-     screen entities
-     hud main-view-3d]
+(sm/defrecord Graphics
+    [client-heartbeat-thread  ; This is a go block
+     fsm :- FiniteStateMachine
+     screen :- clojure.lang.Atom
+     entities :- clojure.lang.Atom
+     hud  ; instance of a play-clj Screen
+     main-view-3d]
   component/Lifecycle
-  (start [this]
-    (fsm/send-transition fsm :disconnect)
+  (start 
+   [this]
+   (log/info "Kicking off FSM -- " (util/pretty fsm))
+   (try          
+     (fsm/send-transition fsm :disconnect)
+     (catch RuntimeException ex
+       (log/error ex "Sending disconnect request failed")
+       (raise [:fsm-transition
+               {:reason ex}]))
+     (catch Exception ex
+       (log/error ex "Sending disconnect failed badly")
+       (raise [:fsm-transition
+               {:reason ex}]))
+     (catch Throwable ex
+       (log/error ex "Error requesting disconnect transition")
+       (raise [:fsm-transition
+               {:reason ex}])))
+    (log/info "FSM Disconnected")
     (let [screen-atom (if screen
                         screen
                         (atom {}))
@@ -56,9 +77,41 @@
                   :hud hud
                   :main-view-3d main-view-3d})))
   (stop [this]
-    (fsm/send-transition fsm :cancel)
+    (log/info "Canceling FSM")
+    (try          
+      (fsm/send-transition fsm :cancel)
+      (catch RuntimeException ex
+        ;; It's extremely tempted to propogate this, so
+        ;; it doesn't get missed.
+        ;; TODO: Do that, in debug mode.
+        (log/error ex "Failed to cancel the FSM:\n"
+                   (util/pretty fsm)
+                   "\nError:\n" ex
+                   "\nStack Trace:\n" (.getStackTrace ex)
+                   "\nMessage: " (.getMessage ex)))
+      (catch Exception ex
+        ;; It's extremely tempted to propogate this, so
+        ;; it doesn't get missed.
+        ;; TODO: Do that, in debug mode.
+        (log/error ex "Error tring to cancel the FSM:\n"
+                   (util/pretty fsm)
+                   "\nError:\n" ex
+                   "\nStack Trace:\n" (.getStackTrace ex)
+                   "\nMessage: " (.getMessage ex)))
+      (catch Throwable ex
+        ;; It's extremely tempted to propogate this, so
+        ;; it doesn't get missed.
+        ;; TODO: Do that, in debug mode.
+        (log/error ex "Major problem cancelling the FSM:\n"
+                   (util/pretty fsm)
+                   "\nError:\n" ex
+                   "\nStack Trace:\n" (.getStackTrace ex)
+                   "\nMessage: " (.getMessage ex))))
+    (log/info "Calling reset on the screen atom")
     (reset! screen {})
+    (log/info "Calling reset on the entities atom")
     (reset! entities [])
+    (log/info "Stopped")
     (into this {:hud nil
                 :main-view-3d nil})))
 
@@ -165,10 +218,10 @@ This makes that happen"
 (defn draw-basic-triangles
   [{:keys [width height angle] :or {width 1 height 1 angle 0}}
    drawer]
-  (comment (log/trace "Drawing a Basic Triangle")
+  (comment (log/trace "Drawing a Basic Triangle"          
            ;; FIXME: Desperately need to redirect pprint's
            ;; output to a string and log it instead of printing.
-           (pprint [width height angle drawer]))
+           (util/pretty [width height angle drawer])))
 
   (let [w2 (/ width 2.0)
         h2 (/ height 2.0)]
@@ -259,8 +312,8 @@ This makes that happen"
     :or {angle 0 delta-t 0}
     :as params}]
   (comment
-    (log/trace "Initial Update State:")
-    (pprint params))
+    (log/trace "Initial Update State:\n"          
+              (util/pretty params)))
   (let [next-angle (+ (* delta-t 8) angle)
         next-angle (if (>= next-angle 360.0)
                      (- next-angle 360.0)
@@ -279,8 +332,8 @@ There's no excuse for the current sorry state of things, except that
 I'm trying to remember/figure out how all the pieces fit together."
   [[delta time] params]
     (comment
-           (log/trace "Update callback: " time " -- " params "\nDelta: " delta)
-           (pprint params))
+           (log/trace "Update callback: " time " -- " params "\nDelta: " delta "\n"          
+           (util/pretty params)))
   (manage
    ;; this value was being set in run-splash.
    ;; Since that is no longer getting called, this no longer gets
@@ -308,8 +361,8 @@ I'm trying to remember/figure out how all the pieces fit together."
                          (do
                            ;; Does the return value of the drawer matter?
                            (drawer updated)
-                           (log/trace "From update, returning:")
-                           (pprint updated)
+                           (log/trace "From update, returning:\n"          
+                           (util/pretty updated))
                            updated)
                          (do
                            (comment) (raise {:error "Update: No draw-function" 

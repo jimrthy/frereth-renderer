@@ -26,11 +26,12 @@
       (log/info "Waiting on the front-end thread to exit. Value in the atom:\n"
             #_(:front-end world))
       (comment (.join @(:front-end world)))
-      (comment (deref @(:front-end world)))
-      (raise [:not-implemented
-              {:message "*This* is what that terminator channel is for"}])
-      (let [terminal-channel (-> world :messaging deref :terminator)]
-        (async/<!! terminal-channel))
+      (comment (deref @(:front-end world))
+               (raise [:not-implemented
+                       {:message "*This* is what that terminator channel is for"}])
+               (let [terminal-channel (-> world :messaging deref :terminator)]
+                 (async/<!! terminal-channel)))
+      @(:done world)  ; This seems at least vaguely reasonable
       (log/info "Graphics thread has exited")
 
       ;; Then clean up

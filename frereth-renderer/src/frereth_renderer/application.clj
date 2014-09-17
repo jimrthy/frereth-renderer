@@ -51,6 +51,8 @@
                           (log/info "Associating screens w/ game")
                           (try
                             (play-clj/set-screen! this main-view-3d hud)
+                            ;;(play-clj/set-screen! this hud)
+                            (log/info "Screen(s) associated")
                             (catch clojure.lang.ExceptionInfo ex
                               (log/error ex "Failed to associate screens with game")
                               (raise [:screen-association-failure
@@ -69,7 +71,9 @@
                                       {:reason ex}])))))]
              (log/info "Game Listener created. Associating Session:\n"
                        (with-out-str (pprint session)))
+             (comment (raise [:got-here]))
              (try
+               (log/info "Creating the actual Application")
                (let [app (LwjglApplication. game title width height)]
                  (try
                    (log/info "Main window initialized")
@@ -90,7 +94,21 @@
                             "\nHeight: " height
                             "\nException: " (with-out-str (pprint ex)))
                  (raise [:application-failure
-                         :reason ex]))))
+                         :reason ex]))
+               (catch Exception ex
+                 (log/error ex "Unexpectedly failed to set up Application\n"
+                            "Game: " game
+                            "\nTitle: " title
+                            "\nWidth: " width
+                            "\nHeight: " height
+                            "\nException: " (with-out-str (pprint ex))))
+               (catch Throwable ex
+                 (log/error ex "Severely failed to set up Application\n"
+                            "Game: " game
+                            "\nTitle: " title
+                            "\nWidth: " width
+                            "\nHeight: " height
+                            "\nException: " (with-out-str (pprint ex))))))
            (catch RuntimeException ex
              ;; log/error really should print the exception details for me.
              ;; Then again, it also shouldn't just disappear from the REPL
