@@ -52,6 +52,23 @@
    (comment (shutdown-agents))
    this))
 
+(sm/defn transitions->state-pairs :- [(s/one [(s/one s/Keyword)
+                                              (s/one State)])]
+  [states :- TransitionMap]
+  (let [pairs (map (fn [[k v]]
+                     [k (strict-map->State {:edges v})])
+                   states)]))
+
+(sm/defn state-pairs->description :- Description
+  [initial-pairs :- [(s/one [(s/one s/Keyword) (s/one State)])]
+   hard-coded :- TransitionMap]
+  (let [initial-map (reduce (fn [acc [k v]]
+                              (assoc acc k v))
+                            initial-pairs)]
+    (s/validate Description
+                (into initial-map
+                      hard-coded))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
 
@@ -82,7 +99,7 @@ without side-effects.
 This can easily be abused, but it also provides
 an extremely rich API for cheap.
 TODO: Would core.async be more appropriate than agents?"
-  [states :- {s/Keyword Transition}
+  [states :- TransitionMap
    initial-state :- s/Keyword]
   (let [hard-coded {:__done {:edges {:pre-init {:next-state :__pre-init}}}
                     :__pre-init {:edges {:init {:next-state :__init}
@@ -99,16 +116,11 @@ TODO: Would core.async be more appropriate than agents?"
                    :initial-state initial-state}]
     (if states
       ;; TODO: Refactor this into its own method so I can unit test it.
-      (let [initial-pairs (map (fn [[k v]]
-                                 [k (strict-map->State {:edges v})])
-                               states)]
+      (let [initial-pairs (transitions->state-pairs states)]
         (log/debug "Went from\n" states
                    "\nto\n" initial-pairs
                    "\nTrying to convert to a Description:")
-        (let [initial-map (hash-map initial-pairs)
-              descr (s/validate Description
-                                (into initial-map
-                                      hard-coded))]
+        (let [descr (state-pairs->description initial-pairs hard-coded)]
           (strict-map->FiniteStateMachine
            (assoc-in base-line [:description] descr))))
       (do (log/debug "Creating an empty FSM. This will probably backfire")

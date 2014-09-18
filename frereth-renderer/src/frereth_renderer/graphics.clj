@@ -16,9 +16,6 @@
   (:import [frereth_renderer.fsm FiniteStateMachine])
   (:gen-class))
 
-;;;; FIXME: This namespace is getting too big. How much can I split out
-;;;; into smaller pieces?
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schema
 
@@ -41,8 +38,10 @@
 (sm/defrecord Graphics
     [client-heartbeat-thread  ; This is a go block
      fsm :- FiniteStateMachine
-     screen :- clojure.lang.Atom
-     entities :- clojure.lang.Atom
+     screen-hud :- clojure.lang.Atom
+     entities-hud :- clojure.lang.Atom
+     screen-3d :- clojure.lang.Atom
+     entities-3d :- clojure.lang.Atom
      hud  ; instance of a play-clj Screen
      main-view-3d]
   component/Lifecycle
@@ -64,16 +63,24 @@
        (raise [:fsm-transition
                {:reason ex}])))
     (log/info "FSM Disconnected")
-    (let [screen-atom (if screen
-                        screen
-                        (atom {}))
-          entities-atom (if entities
-                          entities
-                          (atom []))
-          hud (build-hud screen-atom entities-atom)
-          main-view-3d (build-main-3d fsm screen-atom entities-atom)]
-      (into this {:screen screen-atom
-                  :entities entities-atom
+    (let [screen-hud-atom (if screen-hud
+                            screen-hud
+                            (atom {}))
+          entities-hud-atom (if entities-hud
+                              entities-hud
+                              (atom []))
+          hud (build-hud screen-hud-atom entities-hud-atom)
+          screen-3d-atom (if screen-3d
+                            screen-3d
+                            (atom {}))
+          entities-3d-atom (if entities-3d
+                              entities-3d
+                              (atom []))
+          main-view-3d (build-main-3d fsm screen-3d-atom entities-3d-atom)]
+      (into this {:screen-hud screen-hud-atom
+                  :entities-hud entities-hud-atom
+                  :screen-3d screen-3d-atom
+                  :entities-3d entities-3d-atom
                   :hud hud
                   :main-view-3d main-view-3d})))
   (stop [this]
@@ -107,10 +114,14 @@
                    "\nError:\n" ex
                    "\nStack Trace:\n" (.getStackTrace ex)
                    "\nMessage: " (.getMessage ex))))
-    (log/info "Calling reset on the screen atom")
-    (reset! screen {})
-    (log/info "Calling reset on the entities atom")
-    (reset! entities [])
+    (log/info "Calling reset on the HUD screen atom")
+    (reset! screen-hud {})
+    (log/info "Calling reset on the HUD entities atom")
+    (reset! entities-hud [])
+    (log/info "Calling reset on the 3D screen atom")
+    (reset! screen-3d {})
+    (log/info "Calling reset on the 3D entities atom")
+    (reset! entities-3d [])
     (log/info "Stopped")
     (into this {:hud nil
                 :main-view-3d nil})))
