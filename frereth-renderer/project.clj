@@ -58,13 +58,9 @@ java.library.path and that's good enough."
                  [im.chit/ribol "0.4.0"]
                  ;;[jimrthy/cljeromq "0.1.0-SNAPSHOT"]
                  ;;[jimrthy/penumbra "0.6.6-SNAPSHOT"]
-                 ;;[kephale/cantor "0.4.1"] ; Deprecated math optimization library
-                 ;;[kephale/lwjgl "2.9.0"]
-                 ;;[kephale/lwjgl-natives "2.9.0"]
-                 ;;[kephale/lwjgl-util "2.9.0"]
-                 [org.clojure/clojure "1.6.0"]  ; 1.7 breaks play-clj
+                 [org.clojure/clojure "1.6.0"]  ; 1.7 breaks datomic
                  [org.clojure/core.async "0.1.338.0-5c5012-alpha"]
-                 [org.clojure/core.contracts "0.0.5"]
+                 [org.clojure/core.contracts "0.0.5"]  ; TODO: Make this go away
                  ;; TODO: What is this?
                  [org.clojure/math.combinatorics "0.0.7"]
                  [org.flatland/useful "0.11.2"]
@@ -72,7 +68,7 @@ java.library.path and that's good enough."
                  [play-clj "0.3.11"]
                  ;; TODO: An nrepl client?
                  [prismatic/plumbing "0.3.3"]
-                 [prismatic/schema "0.2.6"]
+                 [prismatic/schema "0.2.7-SNAPSHOT"]
 
                  ;; FIXME: Is this more appropriate here or in frereth-client?
                  ;; Is it worth an external dependency at all? Especially since

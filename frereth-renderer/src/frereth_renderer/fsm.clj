@@ -52,22 +52,31 @@
    (comment (shutdown-agents))
    this))
 
-(sm/defn transitions->state-pairs :- [(s/one [(s/one s/Keyword)
-                                              (s/one State)])]
+(def TransitionStatePairs [(s/one [(s/one s/Keyword :transition)
+                                   (s/one State :state)] :pair)])
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Utilities
+
+(sm/defn transitions->state-pairs :- TransitionStatePairs
+  "Convert a TransitionMap into a seq of transition/state pairs
+for use as an intermediate step into a Description"
   [states :- TransitionMap]
-  (let [pairs (map (fn [[k v]]
-                     [k (strict-map->State {:edges v})])
-                   states)]))
+  (map (fn [[k v]]
+         [k (strict-map->State {:edges v})])
+       states))
 
 (sm/defn state-pairs->description :- Description
-  [initial-pairs :- [(s/one [(s/one s/Keyword) (s/one State)])]
-   hard-coded :- TransitionMap]
+  "Convert a seq of intermediate transition/state pairs
+into a full-blown Description, based on an initial hard-coded
+TransitionMap"
+  [initial-pairs :- TransitionStatePairs
+   hard-coded :- TransitionMap]  ; N.B. initial-pairs may overwrite this
   (let [initial-map (reduce (fn [acc [k v]]
                               (assoc acc k v))
+                            hard-coded
                             initial-pairs)]
-    (s/validate Description
-                (into initial-map
-                      hard-coded))))
+    (s/validate Description initial-map)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
@@ -108,6 +117,7 @@ TODO: Would core.async be more appropriate than agents?"
         mgr (agent {:__state :__pre-init}
                    :error-mode :continue
                    :error-handler (fn [the-agent ex]
+                                    ;; Q: How am I getting here?
                                     (log/error ex "Agent should transition to an error state")
                                     ;; Q: What makes sense here?
                                     (set-error-mode! the-agent :fail)))
@@ -117,12 +127,12 @@ TODO: Would core.async be more appropriate than agents?"
     (if states
       ;; TODO: Refactor this into its own method so I can unit test it.
       (let [initial-pairs (transitions->state-pairs states)]
-        (log/debug "Went from\n" states
-                   "\nto\n" initial-pairs
+        (log/debug "Went from\n" (util/pretty states)
+                   "\nto\n" (util/pretty initial-pairs)
                    "\nTrying to convert to a Description:")
         (let [descr (state-pairs->description initial-pairs hard-coded)]
           (strict-map->FiniteStateMachine
-           (assoc-in base-line [:description] descr))))
+           (assoc-in base-line [:initial-description] descr))))
       (do (log/debug "Creating an empty FSM. This will probably backfire")
           (map->FiniteStateMachine base-line)))))
 

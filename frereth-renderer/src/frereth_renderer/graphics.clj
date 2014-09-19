@@ -530,10 +530,6 @@ I'm trying to remember/figure out how all the pieces fit together."
   (log/debug "Building the HUD around " screen-atom " and " entities-atom)
   (play-clj/defscreen* screen-atom entities-atom
     {:on-show (fn [screen entities]
-                ;; I think this is probably the purpose behind all the globals
-                ;; that the defscreen macro creates
-                (raise [:oops
-                        {:problem "Different Screen instances really need separate atoms"}])
                 (play-clj/update! screen
                                   :camera (play-clj/orthographic)
                                   :renderer (play-clj/stage))
