@@ -25,42 +25,44 @@
            ;; socket instead.
            ;; Should probably make that a duplicate test, just for
            ;; the sake of completeness.
-           (let [channels (:channels alive)]
+           (let [channels (:channels alive)
+                 fsm (:fsm alive)]
              (if-let [commands (:cmd channels)]
-               (if-let [fsm-agent (:manager (:fsm alive))]
+               (if-let [fsm-agent (:manager fsm)]
                  (do
                    (fact "FSM starts out disconnected"
-                         (log/info "Initial FSM:"
+                         (log/info "render<->client FSM traversal\n"
+                                   "Initial FSM:\n"
                                    (with-out-str (pprint fsm-agent)))
                          ;; This next test is failing, leaving me with a running app, which
                          ;; I desperately do not want.
-                         (fsm/current-state fsm-agent) => :disconnected)
+                         (fsm/current-state fsm) => :disconnected)
                    (pprint @fsm-agent)
                    (fact "Connecting without server from :disconnected -> :waiting-for-home-page"
                          (async/>!! commands :client-connect-without-server)
-                         (fsm/current-state fsm-agent) => :waiting-for-home-page)
+                         (fsm/current-state fsm) => :waiting-for-home-page)
                    (fact "Connected client that connects to server -> :main-life"
                          (async/>!! commands :server-connected)
-                         (fsm/current-state fsm-agent) => :main-life)
+                         (fsm/current-state fsm) => :main-life)
                    (fact "Most messages do nothing here"
                          ;; TODO: Randomly generate a bunch of symbols and feed them in as
                          ;; transitions
                          (async/>!! commands :fake-bogus)
-                         (fsm/current-state fsm-agent) => :main-life)
+                         (fsm/current-state fsm) => :main-life)
                    (fact "User input does not affect the FSM"
                          (e/key-press \a alive)
-                         (fsm/current-state fsm-agent) => :main-life
+                         (fsm/current-state fsm) => :main-life
                          (e/key-type \s alive)
-                         (fsm/current-state fsm-agent) => :main-life
+                         (fsm/current-state fsm) => :main-life
                          (e/key-release \a alive)
-                         (fsm/current-state fsm-agent) => :main-life)
+                         (fsm/current-state fsm) => :main-life)
                    (fact "Can disconnect the client"
                          (async/>!! commands :client-disconnect)
-                         (fsm/current-state fsm-agent) => :disconnected)
+                         (fsm/current-state fsm) => :disconnected)
                    (fact "Killing the FSM should also kill the command thread"
                          ;; This test smells bad
                          (component/stop fsm-agent)
-                         (fsm/current-state fsm-agent) => :__dead
+                         (fsm/current-state fsm) => :__dead
                          ;; But I have to send one final message on the command channel
                          (async/>!! commands :anything))
                    (fact "I need some way to verify that that thread's gone."

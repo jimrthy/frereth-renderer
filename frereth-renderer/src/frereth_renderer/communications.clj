@@ -115,7 +115,7 @@
   component/Lifecycle
   (start
    [this]
-   (log/info "Connecting Client Socket to: "
+   (log/info "Starting Client Socket to: "
              (with-out-str (pprint  url))
              "\nout of:"
              (with-out-str (pprint this)))

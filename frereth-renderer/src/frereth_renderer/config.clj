@@ -35,7 +35,9 @@ save it manually."}])))))
 It would probably make more sense to move this into the fsm
 ns and just use it as the default"
   []
-  {:disconnected
+  {:__init 
+   {:disconnect                    [nil :disconnected]}
+   :disconnected
    {:client-connect-without-server [nil :waiting-for-server]
     :client-connect-with-server    [nil :waiting-for-home-page]
     :client-connect-with-home-page [nil :main-life]}

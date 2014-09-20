@@ -139,33 +139,6 @@ Note that penumbra has a get-version that returns a float version of the same va
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Initialization
 
-(defn configure-windowing
-  "Penumbra's (init)"
-  ([]
-     ;; Surely there are some default parameters that make sense.
-     ;; They should really come from whatever's doing the init, though.
-     ;; Or maybe it should be a mixture of both. Whatever. Worry about
-     ;; it later.
-     (configure-windowing {}))
-  ([params]
-     (log/trace "Configuring the Window. Params:\n" params)
-     (comment (app/vsync! true))
-
-     ;; I don't want to do this!!
-     ;; Each client/world needs to set up its own viewing matrix.
-     ;; Until I get to that point, I need a basic sample idea that
-     ;; pretends to do what they need, if only because I want some
-     ;; sort of visual feedback.
-     ;; This doesn't seem to make any actual difference. As a bonus,
-     ;; closing the window on Windows doesn't actually work. I'm
-     ;; not getting any feedback about the error, either.
-     (comment (gl/clear-color 0.5 0.0 0.5 0.0)
-              (gl/frustum-view 60.0 (/ (double 4) 3) 1.0 100.0)
-              (gl/load-identity))
-     (raise :not-implemented)
-
-     params))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Event Handlers
 
@@ -530,6 +503,7 @@ I'm trying to remember/figure out how all the pieces fit together."
   (log/debug "Building the HUD around " screen-atom " and " entities-atom)
   (play-clj/defscreen* screen-atom entities-atom
     {:on-show (fn [screen entities]
+                ;; Initial setup
                 (play-clj/update! screen
                                   :camera (play-clj/orthographic)
                                   :renderer (play-clj/stage))
@@ -538,14 +512,26 @@ I'm trying to remember/figure out how all the pieces fit together."
                   :x 5))
      :on-render
      (fn [screen entities]
+       ;; Called every frame
        (->> (for [entity entities]
               (case (:id entity)
                 :fps (doto entity (play-clj.ui/label! :set-text (str (play-clj/game :fps))))
                 entity))
             (play-clj/render! screen)))
 
+     :on-key-down
+     (fn [screen entities]
+       (let [k (:key screen)]
+         (when (= k (play-clj/key-code :escape))
+           ;; This pretty much kills the game loop. Which I absolutely
+           ;; do want to protect against
+           (raise [:not-implemented
+                   {:what "Stop the Application"
+                    :how "That's the question"}]))))
+
      :on-resize
      (fn [screen _]
+       ;; Surely there's more to be done
        (play-clj/height! screen 768))}))
 
 (defn build-main-3d

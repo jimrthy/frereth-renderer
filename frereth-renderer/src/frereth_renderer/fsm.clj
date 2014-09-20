@@ -32,17 +32,26 @@
   component/Lifecycle
   (start
    [this]
-   (log/debug "Starting the FSM. Manually adjusting the Manager from\n"
-              (util/pretty @manager) "\nto\n" initial-state)
-   ;; This is getting a little annoying in my debugging. I'm more
-   ;; than a little tempted to turn this into a class where I get to
-   ;; control its printed output. That seems like a really stupid
-   ;; reason to do something so drastic.
-   (set-error-mode! manager :fail)
-   (assoc this :manager 
-          (send manager (fn [initial]
-                          (merge initial initial-description
-                                 {:__state initial-state})))))
+   (if initial-state
+     (do
+       (log/debug "Starting the FSM. Manually adjusting the Manager from\n"
+                  (util/pretty @manager) "\nto\n" initial-state)
+       ;; This is getting a little annoying in my debugging. I'm more
+       ;; than a little tempted to turn this into a class where I get to
+       ;; control its printed output. That seems like a really stupid
+       ;; reason to do something so drastic.
+       (set-error-mode! manager :fail)
+       (assoc this :manager 
+              (send manager (fn [initial]
+                              (merge initial initial-description
+                                     {:__state initial-state})))))
+     (do
+       (log/error "No initial state specified for the FSM.\nValues:\n"
+                  (util/pretty this))
+       (raise [:fail
+               {:initial-description initial-description
+                :manager manager
+                :initial-state initial-state}]))))
 
   (stop
    [this]
@@ -120,17 +129,18 @@ TODO: Would core.async be more appropriate than agents?"
                                     ;; Q: How am I getting here?
                                     (log/error ex "Agent should transition to an error state")
                                     ;; Q: What makes sense here?
-                                    (set-error-mode! the-agent :fail)))
+                                    (comment (set-error-mode! the-agent :fail))))
+        initial-state (or initial-state :__init)
         base-line {:initial-description hard-coded
                    :manager mgr
                    :initial-state initial-state}]
     (if states
-      ;; TODO: Refactor this into its own method so I can unit test it.
       (let [initial-pairs (transitions->state-pairs states)]
-        (log/debug "Went from\n" (util/pretty states)
-                   "\nto\n" (util/pretty initial-pairs)
-                   "\nTrying to convert to a Description:")
+        (log/debug "Converting readable transition/state pairs into a useful Description\n"
+                   "Went from\n" (util/pretty states)
+                   "\nto\n" (util/pretty initial-pairs))
         (let [descr (state-pairs->description initial-pairs hard-coded)]
+          (log/debug "Converted version:\n" (util/pretty descr))
           (strict-map->FiniteStateMachine
            (assoc-in base-line [:initial-description] descr))))
       (do (log/debug "Creating an empty FSM. This will probably backfire")
@@ -139,7 +149,7 @@ TODO: Would core.async be more appropriate than agents?"
 (defn transition-agent [prev transition-key error-if-unknown]
   ;; Wow. This just seems incredibly ugly.
   ;; Aside from not actually working.
-  (log/info "Trying to adjust " prev " by " transition-key)
+  (log/info "Trying to adjust\n" (util/pretty prev) "\nby " transition-key)
   (if-let [{:keys [state]} prev]
     (if-let [transitions (state prev)]
       (if-let [transition (transitions transition-key)]
@@ -155,7 +165,7 @@ TODO: Would core.async be more appropriate than agents?"
             (into prev {:state next-state})) ; Yes. This is the interesting part
           (if error-if-unknown
             (do
-              (comment (log/trace "Set to error out on illegal transition"))
+              (comment) (log/error "Set to error out on illegal transition")
               ;; Note that this should put the agent into an error state.
               (raise (into prev {:failure :transition :which transition-key})))
             (log/debug "Ignoring illegal transition"))))
