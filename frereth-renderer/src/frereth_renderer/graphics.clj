@@ -19,24 +19,10 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schema
 
-;;; Q: What's the point to this?
-(defrecord Visualizer [channel logging session]
-  component/Lifecycle
-  (start
-    [this]
-    (log/info "Starting graphics system")
-    
-    (assoc this :channel (async/chan)))
-  (stop
-    [this]
-    (if channel
-      (async/close! channel)
-      (log/warn "No Visualizer Channel to stop"))
-    (assoc this :channel nil)))
-
 (declare build-hud build-main-3d)
 (sm/defrecord Graphics
-    [client-heartbeat-thread  ; This is a go block
+    [channel logging session  ; Pull in pieces from Visualizer
+     client-heartbeat-thread  ; This is a go block
      fsm :- FiniteStateMachine
      screen-hud :- clojure.lang.Atom
      entities-hud :- clojure.lang.Atom
@@ -77,7 +63,8 @@
                               entities-3d
                               (atom []))
           main-view-3d (build-main-3d fsm screen-3d-atom entities-3d-atom)]
-      (into this {:screen-hud screen-hud-atom
+      (into this {:channel (async/channel)
+                  :screen-hud screen-hud-atom
                   :entities-hud entities-hud-atom
                   :screen-3d screen-3d-atom
                   :entities-3d entities-3d-atom
@@ -123,7 +110,11 @@
     (log/info "Calling reset on the 3D entities atom")
     (reset! entities-3d [])
     (log/info "Stopped")
-    (into this {:hud nil
+    (if channel
+      (async/close! channel)
+      (log/warn "No Visualizer Channel to stop"))
+    (into this {:channel nil
+                :hud nil
                 :main-view-3d nil})))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -523,11 +514,14 @@ I'm trying to remember/figure out how all the pieces fit together."
      (fn [screen entities]
        (let [k (:key screen)]
          (when (= k (play-clj/key-code :escape))
-           ;; This pretty much kills the game loop. Which I absolutely
-           ;; do want to protect against
-           (raise [:not-implemented
-                   {:what "Stop the Application"
-                    :how "That's the question"}]))))
+           (comment
+             ;; This pretty much kills the game loop. Which I absolutely
+             ;; do want to protect against
+             (raise [:not-implemented
+                     {:what "Stop the Application"
+                      :how "That's the question"}]))
+           (let [component (:component entities)]
+             ))))
 
      :on-resize
      (fn [screen _]
@@ -576,11 +570,7 @@ I'm trying to remember/figure out how all the pieces fit together."
          (play-clj/perspective! :update))
        (play-clj/render! screen entities))}))
 
-;;; Initialization (these should really all go away)
-
-(defn new-visualizer
-  []
-  (map->Visualizer {}))
+;;; Initialization
 
 (defn init
   []

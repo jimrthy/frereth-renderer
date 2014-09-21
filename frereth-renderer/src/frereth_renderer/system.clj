@@ -33,7 +33,6 @@
 
   (component/system-map
    :application (application/new-application)
-   ;;:background-threads (graphics/new-background-threads {})
    :channels (comm/new-channels)
    ;; TODO: These next pieces are wrong. There should
    ;; be a many-to-many relationship among renderers and
@@ -50,6 +49,7 @@
    :fsm (fsm/init (:fsm-description cfg)
                   (:initial-state cfg))
    :graphics (graphics/init)
+   :listener (application/new-listener)
    :logging (logging/new)
    ;;:messaging (comm/init)  ; Q: What was I planning here?
    ;; A: Looks like this was supposed to be for the communications-thread.
@@ -57,12 +57,11 @@
    ;; Honestly, it's a fairly muddled mess that I need to rethink.
    :persistence (persistence/new-database)
    :session (session/init {:title "I did something different"})
-   :session-manager (session-manager/init {:config cfg})
-   :visualizer (graphics/new-visualizer)))
+   :session-manager (session-manager/init {:config cfg})))
 
 (defn dependencies
   [base]
-  {:application [:graphics :session]
+  {:application [:listener]
    :channels [:logging]
    :client-socket {:url :client-url,
                    :context :context}
@@ -73,11 +72,11 @@
    ;; TODO: graphics absolutely should not depend
    ;; on communications.
    ;; Although it *is* strongly impacted by the FSM
-   :graphics [:client-heartbeat-thread :fsm]
+   :graphics [:client-heartbeat-thread :fsm
+              :logging :session]
+   :listener [:graphics]
    :persistence [:session-manager]
-   :session [:persistence]
-   :visualizer {:logging :logging
-                :session :session}})
+   :session [:persistence]})
 
 (defn build
   [overriding-config-options]
