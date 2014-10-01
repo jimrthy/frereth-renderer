@@ -10,7 +10,7 @@
             [schema.core :as s]
             [taoensso.timbre :as log])
   (:import [com.badlogic.gdx Application Game]
-           [com.badlogic.gdx.backends.lwjgl]
+           [com.badlogic.gdx.backends.lwjgl LwjglApplication]
            [frereth_renderer.graphics Graphics]
            [frereth_renderer.session.core Session]))
 
@@ -23,11 +23,7 @@
    [this]
    (log/info "Initializing Main Window")
    (try
-   (let [title (:title session)
-         position (:position session)
-         width (:width position)
-         height (:height position)
-         hud (:hud graphics)
+   (let [hud (:hud graphics)
          main-view-3d (:main-view-3d graphics)]
      (let [game
            (if-not listener
@@ -64,12 +60,11 @@
                    (catch Throwable ex
                      (log/error ex "Totally unexpected")
                      (raise [:screen-association-failure
-                             {:reason ex}]))))))
-           (do
-             (play-clj/set-screen! listener main-view-3d hud)
-             listener)]
-       (log/info "Game Listener created. Associating Session:\n"
-                 (with-out-str (pprint session)))
+                             {:reason ex}]))))))]
+       (do
+         (play-clj/set-screen! listener main-view-3d hud)
+         listener)
+       (log/info "Game Listener created.")
        (assoc this listener game)))
      (catch RuntimeException ex
        ;; log/error really should print the exception details for me.
@@ -104,52 +99,60 @@
 ;;; that's happened.
 (s/defrecord App [app :- Application
                   game :- MainListener
-                  graphics :- Graphics]
+                  graphics :- Graphics
+                  session :- Session]
   component/Lifecycle
   (start
    [this]
    (if-not app
-     (try
-       ;; N.B. At least on the Desktop, this can only happen once
-       (log/info "Creating the actual Application")
-       ;; TODO: At the very least, need to create something
-       ;; different here depending on which platform we're
-       ;; running on.
-       (let [app (LwjglApplication. game title width height)]
-         (try
-           (log/info "Main window initialized")
-           (into this {:listener game
-                       :owner app})
-           (catch RuntimeException ex
-             (log/error ex "Well, at least I made it past App setup")
-             (raise [:application-failure
-                     {:reason ex}]))))
-       (catch java.lang.IllegalStateException ex
-         (log/error ex "Illegal State:\n"
-                    (.getMessage ex)))
-       (catch RuntimeException ex
-         (log/error ex "Problem definitely stems from trying to set up the Application\n"
-                    "Game: " game
-                    "\nTitle: " title
-                    "\nWidth: " width
-                    "\nHeight: " height
-                    "\nException: " (with-out-str (pprint ex)))
-         (raise [:application-failure
-                 :reason ex]))
-       (catch Exception ex
-         (log/error ex "Unexpectedly failed to set up Application\n"
-                    "Game: " game
-                    "\nTitle: " title
-                    "\nWidth: " width
-                    "\nHeight: " height
-                    "\nException: " (with-out-str (pprint ex))))
-       (catch Throwable ex
-         (log/error ex "Severely failed to set up Application\n"
-                    "Game: " game
-                    "\nTitle: " title
-                    "\nWidth: " width
-                    "\nHeight: " height
-                    "\nException: " (with-out-str (pprint ex)))))
+     (let [title (:title session)
+           position (:position session)
+           width (:width position)
+           height (:height position)]
+       (try
+         ;; N.B. At least on the Desktop, this can only happen once
+         (log/info "Creating the actual Application")
+         ;; TODO: At the very least, need to create something
+         ;; different here depending on which platform we're
+         ;; running on.
+         (let [app (LwjglApplication. game title width height)]
+           (raise [:not-implemented
+                   {:problem "Don't want to create the Application inside the Lifecycle"
+                    :solution "I'm not sure about this yet"}])
+           (try
+             (log/info "Main window initialized")
+             (into this {:listener game
+                         :owner app})
+             (catch RuntimeException ex
+               (log/error ex "Well, at least I made it past App setup")
+               (raise [:application-failure
+                       {:reason ex}]))))
+         (catch java.lang.IllegalStateException ex
+           (log/error ex "Illegal State:\n"
+                      (.getMessage ex)))
+         (catch RuntimeException ex
+           (log/error ex "Problem definitely stems from trying to set up the Application\n"
+                      "Game: " game
+                      "\nTitle: " title
+                      "\nWidth: " width
+                      "\nHeight: " height
+                      "\nException: " (with-out-str (pprint ex)))
+           (raise [:application-failure
+                   :reason ex]))
+         (catch Exception ex
+           (log/error ex "Unexpectedly failed to set up Application\n"
+                      "Game: " game
+                      "\nTitle: " title
+                      "\nWidth: " width
+                      "\nHeight: " height
+                      "\nException: " (with-out-str (pprint ex))))
+         (catch Throwable ex
+           (log/error ex "Severely failed to set up Application\n"
+                      "Game: " game
+                      "\nTitle: " title
+                      "\nWidth: " width
+                      "\nHeight: " height
+                      "\nException: " (with-out-str (pprint ex))))))
      )))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

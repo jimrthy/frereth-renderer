@@ -6,7 +6,6 @@
             [plumbing.core :as pc]
             [ribol.core :refer (escalate manage on raise raise-on)]
             [schema.core :as s]
-            [schema.macros :as sm]
             [taoensso.timbre :as log]
             [zeromq.zmq :as mq])
   (:import [org.zeromq ZMQ$Context])
@@ -20,10 +19,10 @@
 ;; It seems like there really should be a base class that's
 ;; less implementation-specific.
 ;; There doesn't seem to be. Oh well.
-(sm/defrecord Channels [ui :- clojure.core.async.impl.channels.ManyToManyChannel
-                        uo :- clojure.core.async.impl.channels.ManyToManyChannel
-                        cmd :- clojure.core.async.impl.channels.ManyToManyChannel
-                        terminator :- clojure.core.async.impl.channels.ManyToManyChannel]
+(s/defrecord Channels [ui :- clojure.core.async.impl.channels.ManyToManyChannel
+                       uo :- clojure.core.async.impl.channels.ManyToManyChannel
+                       cmd :- clojure.core.async.impl.channels.ManyToManyChannel
+                       terminator :- clojure.core.async.impl.channels.ManyToManyChannel]
   component/Lifecycle
   (start
     [this]
@@ -63,7 +62,7 @@
                 :cmd nil
                 :terminator nil})))
 
-(sm/defrecord Context [context :- ZMQ$Context]
+(s/defrecord Context [context :- ZMQ$Context]
   component/Lifecycle
   (start
     [this]
@@ -76,7 +75,7 @@
     (assoc this :context nil)))
 
 (declare couple)
-(sm/defrecord Coupling [coupling
+(s/defrecord Coupling [coupling
                         context :- Context
                         channels :- Channels]
   component/Lifecycle
@@ -96,20 +95,20 @@
                :context nil
                :channels nil})))
 
-(sm/defrecord URI [protocol :- s/Str
+(s/defrecord URI [protocol :- s/Str
                 address :- s/Str
                 port :- s/Int]
   component/Lifecycle
   (start [this] this)
   (stop [this] this))
 
-(sm/defrecord ClientUrl [uri :- URI]
+(s/defrecord ClientUrl [uri :- URI]
   component/Lifecycle
   (start [this] this)
   (stop [this] this))
 
 (declare build-url)
-(sm/defrecord ClientSocket [context :- Context
+(s/defrecord ClientSocket [context :- Context
                             socket
                             url :- ClientUrl]
   component/Lifecycle
@@ -313,7 +312,7 @@ Need to handle this.")))
         (mq/set-linger writer-sock 0)
         (mq/close writer-sock)))))
 
-(sm/defn couple
+(s/defn couple
   "Need to read from both the UI (keyboard, mouse, etc) and the client socket
 that's relaying messages from the server.
 
@@ -335,7 +334,7 @@ meat."
     {:ui->client writer-thread
      :client->ui reader-thread}))
 
-(sm/defn build-url
+(s/defn build-url
   "This is pretty naive.
 But works for my purposes"
   [{:keys [protocol address port] :as uri} :- URI]

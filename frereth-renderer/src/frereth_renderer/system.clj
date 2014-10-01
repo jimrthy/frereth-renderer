@@ -61,7 +61,7 @@
 
 (defn dependencies
   [base]
-  {:application [:listener]
+  {:application [:listener :session :graphics]
    :channels [:logging]
    :client-socket {:url :client-url,
                    :context :context}

@@ -1,6 +1,7 @@
 (ns frereth-renderer.core
   (:require [clojure.core.async :as async]
             [com.stuartsierra.component :as component]
+            [datomic.api :as d]
             [frereth-renderer.graphics :as graphics]
             [frereth-renderer.system :as sys]
             [ribol.core :refer (raise)]
@@ -43,4 +44,5 @@
         (log/info "Exiting")
         (component/stop world)
         (shutdown-agents)
+        (d/shutdown)
         (log/info "Exited")))))

@@ -5,7 +5,6 @@
             [frereth-renderer.util :as util]
             [ribol.core :refer (manage raise)]
             [schema.core :as s]
-            [schema.macros :as sm]
             [taoensso.timbre :as log])
   (:gen-class))
 
@@ -22,11 +21,11 @@
 
 (def TransitionMap {s/Keyword Transition})
 
-(sm/defrecord State [edges :- TransitionMap])
+(s/defrecord State [edges :- TransitionMap])
 
 (def Description {s/Keyword State})
 
-(sm/defrecord FiniteStateMachine [initial-description :- Description
+(s/defrecord FiniteStateMachine [initial-description :- Description
                                   manager :- clojure.lang.Agent
                                   initial-state :- s/Keyword]
   component/Lifecycle
@@ -67,7 +66,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Utilities
 
-(sm/defn transitions->state-pairs :- TransitionStatePairs
+(s/defn transitions->state-pairs :- TransitionStatePairs
   "Convert a TransitionMap into a seq of transition/state pairs
 for use as an intermediate step into a Description"
   [states :- TransitionMap]
@@ -75,7 +74,7 @@ for use as an intermediate step into a Description"
          [k (strict-map->State {:edges v})])
        states))
 
-(sm/defn state-pairs->description :- Description
+(s/defn state-pairs->description :- Description
   "Convert a seq of intermediate transition/state pairs
 into a full-blown Description, based on an initial hard-coded
 TransitionMap"
@@ -90,7 +89,7 @@ TransitionMap"
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
 
-(sm/defn init :- FiniteStateMachine
+(s/defn init :- FiniteStateMachine
   "Returns a dead FSM.
 Note that this is *not* intended to really be a Component.
 It's more of a preliminary thing that Start will turn into

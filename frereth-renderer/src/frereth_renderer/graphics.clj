@@ -11,7 +11,6 @@
             [play-clj.ui :as play-ui]
             [ribol.core :refer (manage on raise)]
             [schema.core :as s]
-            [schema.macros :as sm]
             [taoensso.timbre :as log])
   (:import [frereth_renderer.fsm FiniteStateMachine])
   (:gen-class))
@@ -20,7 +19,7 @@
 ;;; Schema
 
 (declare build-hud build-main-3d)
-(sm/defrecord Graphics
+(s/defrecord Graphics
     [channel logging session  ; Pull in pieces from Visualizer
      client-heartbeat-thread  ; This is a go block
      fsm :- FiniteStateMachine
@@ -63,7 +62,7 @@
                               entities-3d
                               (atom []))
           main-view-3d (build-main-3d fsm screen-3d-atom entities-3d-atom)]
-      (into this {:channel (async/channel)
+      (into this {:channel (async/chan)
                   :screen-hud screen-hud-atom
                   :entities-hud entities-hud-atom
                   :screen-3d screen-3d-atom
