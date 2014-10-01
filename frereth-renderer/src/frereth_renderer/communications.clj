@@ -1,7 +1,8 @@
 (ns frereth-renderer.communications
-  (:require [byte-streams :as streams]
+  (:require   ; [byte-streams :as streams]
             [clojure.core.async :as async]
             [clojure.pprint :refer (pprint)]
+            [clojurewerkz.buffy.core :as buffy]
             [com.stuartsierra.component :as component]
             [plumbing.core :as pc]
             [ribol.core :refer (escalate manage on raise raise-on)]
@@ -292,15 +293,17 @@ Need to handle this.")))
         (log/debug "Waiting for reader thread to share its port")
         (let [reader-port (async/<!! r->w)]
           (log/debug "Pushing HELO to client, listening on port " reader-port)
-          (mq/send writer-sock (.getBytes ":helo"))  ; TODO: :snd-more flag
+          (mq/send writer-sock (.getBytes ":helo") :send-more)
+
           ;; Trigger the client to connect to the socket bound in the
           ;; client->ui thread
-          ;; TODO: This is something incredibly stupid
-          (log/warn "I haven't figured out how to send a SHORT over a socket. What's wrong with me?")
-          (comment (mq/send writer-sock (streams/convert reader-port java.nio.ByteBuffer)))
-          (mq/send writer-sock (.getBytes (str reader-port)))
+          (let [port-spec (buffy/spec :port (buffy/short-type))
+                buffer (buffy/compose-buffer port-spec)]
+            (buffy/set-field buffer :port reader-port)
+            (mq/send writer-sock buffer))
           (log/debug "Client accepted the HELO. Waiting for an ACK...")
           ;; Getting to here. Values getting horribly mangled in transmission.
+          (log/warn "FIXME: Start here")
           ;; FIXME: Start here!
           ;; Wait for the other side of the hand-shake
           (let [ack (mq/receive writer-sock)]

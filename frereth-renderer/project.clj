@@ -34,6 +34,7 @@ java.library.path and that's good enough."
   ;; to properly configure my local maven repo.
   :dependencies [[byte-streams "0.1.13"]
                  [byte-transforms "0.1.3"]
+                 [clojurewerkz/buffy "1.0.0-beta5"]  ; TODO: This belongs in the comms layer
                  [com.badlogicgames.gdx/gdx "1.3.1"]
                  [com.badlogicgames.gdx/gdx-backend-lwjgl "1.3.1"]
                  [com.badlogicgames.gdx/gdx-box2d "1.3.1"]
