@@ -27,7 +27,8 @@
   (let [fsm-descr (cfg/default-fsm)]
     (alter-var-root #'system
                     (constantly (system/build {:fsm-description fsm-descr
-                                               :initial-state :disconnected})))))
+                                               :initial-state :disconnected
+                                               :platform :desktop})))))
 
 (defn start
   "Starts the current development system."

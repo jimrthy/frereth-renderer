@@ -69,7 +69,7 @@ java.library.path and that's good enough."
                  [play-clj "0.3.11"]
                  ;; TODO: An nrepl client?
                  [prismatic/plumbing "0.3.3"]
-                 [prismatic/schema "0.2.7-SNAPSHOT"]
+                 [prismatic/schema "0.3.0"]
 
                  ;; FIXME: Is this more appropriate here or in frereth-client?
                  ;; Is it worth an external dependency at all? Especially since

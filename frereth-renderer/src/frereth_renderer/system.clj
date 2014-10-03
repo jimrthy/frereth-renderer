@@ -32,7 +32,7 @@
   (log/info "INIT\n" (util/pretty cfg))
 
   (component/system-map
-   :application (application/new-application)
+   :application (application/new-application cfg)
    :channels (comm/new-channels)
    ;; TODO: These next pieces are wrong. There should
    ;; be a many-to-many relationship among renderers and
@@ -49,7 +49,6 @@
    :fsm (fsm/init (:fsm-description cfg)
                   (:initial-state cfg))
    :graphics (graphics/init)
-   :listener (application/new-listener)
    :logging (logging/new)
    ;;:messaging (comm/init)  ; Q: What was I planning here?
    ;; A: Looks like this was supposed to be for the communications-thread.
@@ -61,8 +60,7 @@
 
 (defn dependencies
   [base]
-  {:application [:listener :session :graphics]
-   :channels [:logging]
+  {:channels [:logging]
    :client-socket {:url :client-url,
                    :context :context}
    :client-url [:logging]
@@ -72,9 +70,9 @@
    ;; TODO: graphics absolutely should not depend
    ;; on communications.
    ;; Although it *is* strongly impacted by the FSM
-   :graphics [:client-heartbeat-thread :fsm
+   :graphics [:application :client-heartbeat-thread :fsm
               :logging :session]
-   :listener [:graphics]
+   ;;:listener [:graphics]
    :persistence [:session-manager]
    :session [:persistence]})
 
@@ -91,7 +89,10 @@
    ;; ...except for projects where they really and truly
    ;; make sense.
 
-  (let [cfg (into (config/defaults) overriding-config-options)
+  (let [cfg (-> (config/defaults)
+                (into overriding-config-options)
+                (assoc )
+                (assoc ))
         skeleton (init cfg)
         meat (dependencies skeleton)]
     (component/system-using skeleton meat)))

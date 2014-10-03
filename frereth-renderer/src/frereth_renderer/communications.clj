@@ -297,6 +297,8 @@ Need to handle this.")))
 
           ;; Trigger the client to connect to the socket bound in the
           ;; client->ui thread
+
+          (log/warn "Use protocol buffers instead")
           (let [port-spec (buffy/spec :port (buffy/short-type))
                 buffer (buffy/compose-buffer port-spec)]
             (buffy/set-field buffer :port reader-port)

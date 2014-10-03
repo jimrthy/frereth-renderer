@@ -20,7 +20,8 @@
 
 (declare build-hud build-main-3d)
 (s/defrecord Graphics
-    [channel logging session  ; Pull in pieces from Visualizer
+    [application
+     channel logging session
      client-heartbeat-thread  ; This is a go block
      fsm :- FiniteStateMachine
      screen-hud :- clojure.lang.Atom
@@ -62,6 +63,7 @@
                               entities-3d
                               (atom []))
           main-view-3d (build-main-3d fsm screen-3d-atom entities-3d-atom)]
+      (play-clj/set-screen! (:listener application main-view-3d hud))
       (into this {:channel (async/chan)
                   :screen-hud screen-hud-atom
                   :entities-hud entities-hud-atom
