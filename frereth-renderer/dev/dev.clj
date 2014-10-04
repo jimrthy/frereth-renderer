@@ -25,12 +25,17 @@
 
   ;; TODO: Put these in the database
   (let [fsm-descr (cfg/default-fsm)]
-    (alter-var-root #'system
-                    (raise :start-here)
-                    (constantly (system/build {:database-url "datomic:free://localhost"
-                                               :fsm-description fsm-descr
-                                               :initial-state :disconnected
-                                               :platform :desktop})))))
+    ;; Note that this makes us reliant on datomic free for tracking
+    ;; sessions.
+    ;; Which doesn't seem too awful...but it means that we have to
+    ;; be sure that transactor is running before we try to start this.
+    (let [db-url "datomic:free://localhost:4334/frereth-renderer"]
+      ;; TODO: This Configuration really needs its own Schema
+      (alter-var-root #'system
+                      (constantly (system/build {:database-url db-url
+                                                 :fsm-description fsm-descr
+                                                 :initial-state :disconnected
+                                                 :platform :desktop}))))))
 
 (defn start
   "Starts the current development system."

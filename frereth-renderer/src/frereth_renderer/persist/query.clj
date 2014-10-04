@@ -4,9 +4,7 @@
             [frereth-renderer.geometry :as geometry]
             [frereth-renderer.persist.core :as persist]
             [ribol.core :refer (raise)]
-            [schema 
-             [core :as s]
-             [macros :as sm]]
+            [schema.core :as s]
             [taoensso.timbre :as log])
   (:import [frereth_renderer.persist.core Database]))
 
@@ -22,7 +20,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Helpers
 
-(sm/defn run-query
+(s/defn run-query
   [db :- Database
    q :- Query
    & args]
@@ -66,7 +64,10 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
 
-(sm/defn load-previous-session
+(s/defn new-id [] :- s/Uuid
+  (d/squuid))
+
+(s/defn load-previous-session
   [db :- Database
    id :- s/Uuid]
   (let [q (load-previous-session-query)]
@@ -82,7 +83,7 @@
       (catch Exception ex
         (log/error ex "Failed to run query:\n" q)))))
 
-(sm/defn do-update-session-settings
+(s/defn do-update-session-settings
   [db
    {:keys [title :- s/Str
            position :- geometry/rect

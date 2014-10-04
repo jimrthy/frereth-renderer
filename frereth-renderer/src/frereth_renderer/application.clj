@@ -2,17 +2,13 @@
   (:require [clojure.pprint :refer (pprint)]
             [clojure.repl :refer (pst)]
             [com.stuartsierra.component :as component]
-            [frereth-renderer.persist.core :as persist]
-            [frereth-renderer.session.core :as session]
             [play-clj.core :as play-clj]
             [play-clj.ui :as play-ui]
             [ribol.core :refer (raise)]
             [schema.core :as s]
             [taoensso.timbre :as log])
   (:import [com.badlogic.gdx Application Game]
-           [com.badlogic.gdx.backends.lwjgl LwjglApplication]
-           [frereth_renderer.persist.core Database]
-           [frereth_renderer.session.core Session]))
+           [com.badlogic.gdx.backends.lwjgl LwjglApplication]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schema
@@ -188,17 +184,15 @@
       (let [;; It seems ridiculous that I can't break
             ;; these cases down more thoroughly.
             ;; It seems to be a java interop limitation.
-            ;; TODO: Try something like (. new (cond ...))
-            application #_(condp = platform
+            ;; Q: What about something like (. new (cond ...))
+            ;; A: That can't resolve symbol new
+            ;; Oh well. It's not like this is all that
+            ;; much extra boilerplate.
+            application (condp = platform
                           :desktop (new LwjglApplication
                                         game title width height)
                           (raise [:not-implemented
-                                  :platform (platform)]))
-            (. new (condp = platform
-                     :desktop LwjglApplication
-                     (raise [:not-implemented
-                             {:platform platform}]))
-               game title width height)]
+                                  :platform (platform)]))]
         {:app application
          :listener game})
       (catch java.lang.IllegalStateException ex
