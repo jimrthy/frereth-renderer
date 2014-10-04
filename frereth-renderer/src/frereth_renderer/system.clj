@@ -55,7 +55,7 @@
    ;; A: Looks like this was supposed to be for the communications-thread.
    ;; That has an atom for holding command and terminator channels.
    ;; Honestly, it's a fairly muddled mess that I need to rethink.
-   :persistence (persistence/new-database configuration)
+   :persistence (persistence/new-database cfg)
    :session-manager (session-manager/init {:config cfg})
    :view-manager (view-manager/init cfg)))
 
