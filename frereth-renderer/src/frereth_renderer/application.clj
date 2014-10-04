@@ -189,11 +189,16 @@
             ;; these cases down more thoroughly.
             ;; It seems to be a java interop limitation.
             ;; TODO: Try something like (. new (cond ...))
-            application (condp = platform
+            application #_(condp = platform
                           :desktop (new LwjglApplication
                                         game title width height)
                           (raise [:not-implemented
-                                  :platform (platform)]))]
+                                  :platform (platform)]))
+            (. new (condp = platform
+                     :desktop LwjglApplication
+                     (raise [:not-implemented
+                             {:platform platform}]))
+               game title width height)]
         {:app application
          :listener game})
       (catch java.lang.IllegalStateException ex
@@ -226,4 +231,3 @@
                    "\nException: " (with-out-str (pprint ex)))
         (raise [:application-failure
                 :reason ex])))))
-

@@ -5,9 +5,7 @@
             [frereth-renderer.persist.schema :as schema]
             [frereth-renderer.session.manager :as session-manager]
             [ribol.core :refer (raise)]
-            [schema
-             [core :as s]
-             [macros :as sm]]
+            [schema.core :as s]
             [taoensso.timbre :as log])
   (:import [frereth_renderer.session.manager SessionManager])
   (:gen-class))
@@ -15,8 +13,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schema
 
-(sm/defrecord Database [connection
-                        session-manager :- SessionManager]
+(sm/defrecord Database [connection]
   component/Lifecycle
   (start [this]
          (let [uri (:datomic-url session-manager)]
@@ -48,5 +45,5 @@
   (d/squuid))
 
 (defn new-database
-  []
+  [configuration]
   (map->Database {}))

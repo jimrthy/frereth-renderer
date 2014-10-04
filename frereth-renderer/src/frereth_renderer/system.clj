@@ -14,6 +14,7 @@
              [core :as session]
              [manager :as session-manager]]
             [frereth-renderer.util :as util]
+            [frereth-renderer.view-manager :as view-manager]
             [schema.core :as s]
             [taoensso.timbre :as log])
   (:gen-class))
@@ -32,7 +33,7 @@
   (log/info "INIT\n" (util/pretty cfg))
 
   (component/system-map
-   :application (application/new-application cfg)
+   ;;:application (application/new-application cfg)
    :channels (comm/new-channels)
    ;; TODO: These next pieces are wrong. There should
    ;; be a many-to-many relationship among renderers and
@@ -54,9 +55,9 @@
    ;; A: Looks like this was supposed to be for the communications-thread.
    ;; That has an atom for holding command and terminator channels.
    ;; Honestly, it's a fairly muddled mess that I need to rethink.
-   :persistence (persistence/new-database)
-   :session (session/init {:title "I did something different"})
-   :session-manager (session-manager/init {:config cfg})))
+   :persistence (persistence/new-database configuration)
+   :session-manager (session-manager/init {:config cfg})
+   :view-manager (view-manager/init cfg)))
 
 (defn dependencies
   [base]
@@ -72,9 +73,14 @@
    ;; Although it *is* strongly impacted by the FSM
    :graphics [:application :client-heartbeat-thread :fsm
               :logging :session]
-   ;;:listener [:graphics]
-   :persistence [:session-manager]
-   :session [:persistence]})
+   ;; Q: What was I thinking here?
+   ;; A: session-manager owned the database URL, for some reason.
+   ;; The session would use persistence to restore itself.
+   ;; Totally upside down.
+   ;;:persistence [:session-manager]
+   ;;:session [:persistence]
+   :session-manager [:persistence]
+   :view-manager [:session-manager]})
 
 (defn build
   [overriding-config-options]

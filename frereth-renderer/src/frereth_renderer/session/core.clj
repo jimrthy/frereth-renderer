@@ -13,8 +13,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schema
 
-(sm/defrecord Session [persistence :- Database
-                       title :- s/Str
+(sm/defrecord Session [title :- s/Str
                        position :- geometry/Rectangle
                        id :- s/Uuid
                        ;; Q: Does any of the rest of this belong in here?

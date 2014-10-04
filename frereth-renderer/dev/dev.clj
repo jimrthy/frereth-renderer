@@ -26,7 +26,9 @@
   ;; TODO: Put these in the database
   (let [fsm-descr (cfg/default-fsm)]
     (alter-var-root #'system
-                    (constantly (system/build {:fsm-description fsm-descr
+                    (raise :start-here)
+                    (constantly (system/build {:database-url "datomic:free://localhost"
+                                               :fsm-description fsm-descr
                                                :initial-state :disconnected
                                                :platform :desktop})))))
 

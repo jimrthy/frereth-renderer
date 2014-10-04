@@ -2,31 +2,41 @@
   (:gen-class)
   (:require [clojure.edn :as edn]
             [com.stuartsierra.component :as component]
+            [frereth-renderer.session.core :as session]
             [schema.core :as s]
             [schema.macros :as sm]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schema
 
-(sm/defrecord SessionManager [config datomic-url]
+(declare session-restore)
+(sm/defrecord SessionManager [persistence sessions]
   component/Lifecycle
-  (start [this]
-         (when-not datomic-url
-           (if-let [cfg-file (:config-file config)]
-             (do
-               (let [config-string (slurp cfg-file)
-                     config-map (edn/read-string config-string)]
-                 (assoc this :datomic-url (:datomic-url config-map))))
-             ;; Cheeseball default, that probably won't work.
-             ;; But I have to start somewhere.
-             (assoc this :datomic-url "datomic:free//localhost:4334/FrerethRenderer"))))
-  (stop [this]
-        this))
+  (start
+   [this]
+   (let [ss (session-restore persistence)]
+     (into this {:sessions (reset! sessions ss)})))
+
+  (stop
+   [this]
+   (into this {:sessions (reset! sessions [])})))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Helpers
+
+(defn session-restore
+  "Have to start somewhere"
+  [persistence]
+  ;; TODO: Have the database tell us what to do.
+  ;; If it's a "real" restore, do that instead.
+  [(component/start (session/init {:width 800 :title "Frereth Left"}))
+   (component/start (session/init {:left 800 :width 800 :title "Frereth Right"}))])
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
 
 (defn init
   [params]
-  (map->SessionManager (select-keys params [:config :datomic-url])))
+  (map->SessionManager (-> (select-keys params [:config :datomic-url])
+                           (assoc :sessions (atom [])))))
 
