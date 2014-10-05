@@ -2,6 +2,7 @@
   (:require [clojure.core.async :as async]
             [com.stuartsierra.component :as component]
             [datomic.api :as d]
+            [frereth-renderer.config :as cfg]
             [frereth-renderer.graphics :as graphics]
             [frereth-renderer.system :as sys]
             [ribol.core :refer (raise)]
@@ -11,7 +12,13 @@
 (defn -main
   "Theoretically, this is the entry point where everything interesting should start."
   [& args]
-  (let [dead-world (sys/build {})
+  (let [fsm-descr (cfg/default-fsm)
+        db-url "datomic:free://localhost:4334/frereth-renderer"
+        initial-cfg {:database-url db-url
+                     :fsm-description fsm-descr
+                     :initial-state :disconnected
+                     :platform :desktop}
+        dead-world (sys/build initial-cfg)
         world (component/start dead-world)]
     (try
       ;; Wait for this to exit.

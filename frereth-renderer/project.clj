@@ -34,7 +34,6 @@ java.library.path and that's good enough."
   ;; to properly configure my local maven repo.
   :dependencies [[byte-streams "0.1.13"]
                  [byte-transforms "0.1.3"]
-                 [clojurewerkz/buffy "1.0.0-beta5"]  ; TODO: This belongs in the comms layer
                  [com.badlogicgames.gdx/gdx "1.3.1"]
                  [com.badlogicgames.gdx/gdx-backend-lwjgl "1.3.1"]
                  [com.badlogicgames.gdx/gdx-box2d "1.3.1"]
@@ -56,15 +55,15 @@ java.library.path and that's good enough."
                  ;; I want to use)
                  ;[datomic-schema-grapher "0.0.1"]
                  [frereth-client "0.1.0-SNAPSHOT"]
-                 [im.chit/ribol "0.4.0"]
-                 ;;[jimrthy/cljeromq "0.1.0-SNAPSHOT"]
-                 ;;[jimrthy/penumbra "0.6.6-SNAPSHOT"]
+                 #_[im.chit/ribol "0.4.0"]
+                 ;;[jimrthy/cljeromq "0.1.0-SNAPSHOT"]  ; Q: Go away, or not?
                  [org.clojure/clojure "1.6.0"]  ; 1.7 breaks datomic
                  [org.clojure/core.async "0.1.338.0-5c5012-alpha"]
                  [org.clojure/core.contracts "0.0.5"]  ; TODO: Make this go away
                  ;; TODO: What is this?
                  [org.clojure/math.combinatorics "0.0.7"]
                  [org.flatland/classlojure "0.7.1"]
+                 [org.flatland/protobuf "0.8.1"]
                  [org.flatland/useful "0.11.2"]
                  [org.zeromq/cljzmq "0.1.4"]
                  [play-clj "0.3.11"]
@@ -88,12 +87,14 @@ java.library.path and that's good enough."
                  ]
   :documentation {:files {"basics" {:input "test/docs/basics.clj"
                                     :title "Basics"
-                                    :sub-title "Wrapping my head around this idea"
+                                    :sub-title "Wrapping my head around the documentation parts"
                                     :author "James Gatannah"
                                     :email "james@frereth.com"}}}
   :jvm-opts [~(str "-Djava.library.path=native/:/usr/local/lib:"
-                   (System/getProperty "java.library.path"))]
+                   (System/getProperty "java.library.path"))]  ; for jzmq
   :main frereth-renderer.core
+
+  :plugins [[lein-protobuf "0.4.1"]]
 
   :profiles {:uberjar {:aot :all}
              :dev {:source-paths ["dev"]

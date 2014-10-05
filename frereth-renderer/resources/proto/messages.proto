@@ -1,0 +1,9 @@
+message Handshake {
+  // no option for the short that this really represents
+  // It's very tempting to convert it to a pair of bytes instead.
+  // Then again, it's not like this is inner-loop
+  // performance-sensitive stuff.
+  // All things considered, for this, I'd probably be better
+  // off just sending the message as EDN.
+  optional int32 port = 1;
+}

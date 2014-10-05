@@ -1,5 +1,6 @@
 (ns frereth-renderer.system
   (:require [clojure.core.async :as async]
+            [clojure.pprint :refer (pprint)]
             [com.stuartsierra.component :as component]
             [frereth-client.system :as client]
             [frereth-renderer.application :as application]
@@ -95,10 +96,11 @@
    ;; ...except for projects where they really and truly
    ;; make sense.
 
+  (println "Building initial system, starting with:")
+  (pprint overriding-config-options)
+
   (let [cfg (-> (config/defaults)
-                (into overriding-config-options)
-                (assoc )
-                (assoc ))
+                (into overriding-config-options))
         skeleton (init cfg)
         meat (dependencies skeleton)]
     (component/system-using skeleton meat)))

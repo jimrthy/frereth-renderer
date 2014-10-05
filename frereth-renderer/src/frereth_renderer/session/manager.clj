@@ -42,18 +42,27 @@ thinking it means."
   [persistence]
   ;; TODO: Have the database tell us what to do.
   ;; If it's a "real" restore, do that instead.
-  [{:title "Frereth Left"
-    :position {:left 0
-               :top 0
-               :width 1200
-               :height 900}
-    :id (java.util.UUID/randomUUID)}
-   {:title "Frereth Right"
-    :position {:left 1200
-               :top 0
-               :width 1200
-               :height 900}
-    :id (java.util.UUID/randomUUID)}])
+
+  ;; Making this an atom seems totally backwards.
+  ;; A seq of atoms seems like it would make a lot more
+  ;; sense.
+  ;; It's tempting to think that a ref would be appropriate,
+  ;; but I really don't think so.
+  ;; This really might be the perfect use case for an agent.
+  ;; TODO: Put some more thought into actual implementation.
+  ;; As soon as I get the rope thrown across the gorge.
+  (atom [{:title "Frereth Left"
+          :position {:left 0
+                     :top 0
+                     :width 1200
+                     :height 900}
+          :id (java.util.UUID/randomUUID)}
+         {:title "Frereth Right"
+          :position {:left 1200
+                     :top 0
+                     :width 1200
+                     :height 900}
+          :id (java.util.UUID/randomUUID)}]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public

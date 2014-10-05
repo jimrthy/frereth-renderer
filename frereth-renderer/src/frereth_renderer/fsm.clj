@@ -1,6 +1,7 @@
 (ns frereth-renderer.fsm
   (:require [clojure.core.async :as async]
             [clojure.core.contracts :as contract]
+            [clojure.pprint :refer (pprint)]
             [com.stuartsierra.component :as component]
             [frereth-renderer.util :as util]
             [ribol.core :refer (manage raise)]
@@ -143,7 +144,9 @@ TODO: Would core.async be more appropriate than agents?"
           (strict-map->FiniteStateMachine
            (assoc-in base-line [:initial-description] descr))))
       (do (log/debug "Creating an empty FSM. This will probably backfire")
-          (map->FiniteStateMachine base-line)))))
+          (let [result (map->FiniteStateMachine base-line)]
+            (log/debug (with-out-str (pprint result)))
+            result)))))
 
 (defn transition-agent [prev transition-key error-if-unknown]
   ;; Wow. This just seems incredibly ugly.

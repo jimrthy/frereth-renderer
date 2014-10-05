@@ -2,7 +2,7 @@
   (:require   ; [byte-streams :as streams]
             [clojure.core.async :as async]
             [clojure.pprint :refer (pprint)]
-            [clojurewerkz.buffy.core :as buffy]
+            ;;[clojurewerkz.buffy.core :as buffy]
             [com.stuartsierra.component :as component]
             [plumbing.core :as pc]
             [ribol.core :refer (escalate manage on raise raise-on)]
@@ -292,20 +292,26 @@ Need to handle this.")))
       (try
         (log/debug "Waiting for reader thread to share its port")
         (let [reader-port (async/<!! r->w)]
-          (log/debug "Pushing HELO to client, listening on port " reader-port)
-          (mq/send writer-sock (.getBytes ":helo") :send-more)
+          (log/info "Pushing HELO to client, listening on port " reader-port)
+          (try
+            (mq/send writer-sock (.getBytes ":helo") (:send-more mq/socket-options))
+            (catch java.lang.ClassCastException ex
+              (log/error ex "Trying to send HELO")
+              (raise [:handshake-failure
+                      :reason ex])))
 
           ;; Trigger the client to connect to the socket bound in the
           ;; client->ui thread
 
-          (log/warn "Use protocol buffers instead")
-          (let [port-spec (buffy/spec :port (buffy/short-type))
-                buffer (buffy/compose-buffer port-spec)]
-            (buffy/set-field buffer :port reader-port)
-            (mq/send writer-sock buffer))
+          (comment (log/warn "Use protocol buffers instead")
+                   (let [port-spec (buffy/spec :port (buffy/short-type))
+                         buffer (buffy/compose-buffer port-spec)]
+                     (buffy/set-field buffer :port reader-port)
+                     (mq/send writer-sock buffer)))
+          (mq/send writer-sock (.getBytes (pr-str {:port reader-port})))
           (log/debug "Client accepted the HELO. Waiting for an ACK...")
           ;; Getting to here. Values getting horribly mangled in transmission.
-          (log/warn "FIXME: Start here")
+          (log/warn "FIXME: Make sure this works")
           ;; FIXME: Start here!
           ;; Wait for the other side of the hand-shake
           (let [ack (mq/receive writer-sock)]
