@@ -98,7 +98,8 @@ java.library.path and that's good enough."
 
   :profiles {:uberjar {:aot :all}
              :dev {:source-paths ["dev"]
-                   :dependencies  [[clj-ns-browser "1.3.1"]
+                   :dependencies  [[alembic "0.3.2"]
+                                   [clj-ns-browser "1.3.1"]
                                    ;;[com.ambrosebs/dynalint "0.1.3"]
                                    [midje "1.6.3"]
                                    [org.clojure/tools.namespace "0.2.6"]
