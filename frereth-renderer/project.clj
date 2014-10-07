@@ -32,6 +32,12 @@ java.library.path and that's good enough."
 
   ;; Big swaths of these are only needed because I haven't found the time
   ;; to properly configure my local maven repo.
+
+  ;; N.B.: Several of these are used by application, when view-manager
+  ;; loads them up with a separate class loader. When you bump versions here,
+  ;; double-check there.
+  ;; TODO: Seems like it would be better to have that just load everything
+  ;; listed here instead.
   :dependencies [[byte-streams "0.1.13"]
                  [byte-transforms "0.1.3"]
                  [com.badlogicgames.gdx/gdx "1.3.1"]
@@ -52,7 +58,8 @@ java.library.path and that's good enough."
                  ;; I want something like the next line, but it somehow
                  ;; manages to make hiccup conflict with itself
                  ;; (I blame this complicated project, not the library
-                 ;; I want to use)
+                 ;; I want to use...after all, why on earth am I
+                 ;; using hiccup?)
                  ;[datomic-schema-grapher "0.0.1"]
                  [frereth-client "0.1.0-SNAPSHOT"]
                  #_[im.chit/ribol "0.4.0"]

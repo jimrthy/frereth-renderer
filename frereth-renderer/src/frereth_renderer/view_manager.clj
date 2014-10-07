@@ -10,10 +10,11 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schema
 
-(defn build-application
-  [configuration session]
-  (require '[frereth-renderer.application])
-  (frereth-renderer.application/new-application configuration session))
+;; Q: Why is this here?
+(comment (defn build-application
+           [configuration session]
+           (require '[frereth-renderer.application])
+           (frereth-renderer.application/new-application configuration session)))
 
 (defrecord ViewManager [applications configuration session-manager]
   component/Lifecycle
@@ -25,17 +26,39 @@
     (when (seq @applications)
       (log/warn "Starting views that are active"))
 
-    (let [home (System/getProperty "user.home")
-          ;; TODO: Fetch this from a URL if it isn't already present.
-          ;; It needs to go into some well-known subdirectory.
+    (let [sessions-atom (:sessions session-manager)
+          sessions @sessions-atom
+          home (System/getProperty "user.home")
+          ;; TODO: Fetch these from a URL if they aren't already present.
+          ;; They need to go into some well-known subdirectory.
           ;; Which makes running this from a .jar *very* problematic.
           ;; The classlojure code (unit tests?) has a good example.
-          jar (str "file://" home "/.m2/repository/org/clojure/clojure/1.6.0/clojure-1.6.0.jar")
+          ;; TODO: just copy this from the existing CLASSPATH instead.
+          prefix (str "file://" home "/.m2/repository/")
+          clojure (str prefix "org/clojure/clojure/1.6.0/clojure-1.6.0.jar")
+          stu-sierra (str prefix "com/stuartsierra/")
+          ss-component (str stu-sierra "component/0.2.2/component-0.2.2.jar")
+          ss-dependency (str stu-sierra "dependency/0.1.1/dependency-0.1.1.jar")
+          gdx-base (str prefix "com/badlogicgames/gdx/")
+          libgdx (str gdx-base "gdx/1.3.1/gdx-1.3.1.jar")
+          gdx-backend (str gdx-base "gdx-backend-lwjgl/1.3.1/gdx-backend-lwjgl-1.3.1.jar")
+          play (str prefix "play-clj/play-clj/0.3.11/play-clj-0.3.11.jar")
+          lwjgl-base (str prefix "org/lwjgl/lwjgl/")
+          lwjgl (str lwjgl-base "lwjgl/2.9.1/lwjgl-2.9.1.jar")
+          #_(comment lwjgl-utils (str lwjgl-base "lwjgl_util/2.9.1/swjgl_util-2.9.1.jar"))
           working "file:src/"
-          clojure-16 (classlojure/classlojure jar working)
+
           result
           (reduce (fn [acc session]
-                    (let [app
+                    (let [clojure-16 (classlojure/classlojure clojure
+                                                              gdx-backend
+                                                              libgdx
+                                                              lwjgl
+                                                              play
+                                                              ss-component
+                                                              ss-dependency
+                                                              working)
+                          base-line
                           (classlojure/eval-in
                            clojure-16
                            '(do
@@ -57,12 +80,15 @@
                                     (println ex "\n" (.getStackTrace ex) msg)
                                     (throw ex))))
                               (println "ns successfully required")
-                              (frereth-renderer.application/new-application configuration session)
-                              (comment (throw (RuntimeException. "What gives?"))))
+                              (comment (throw (RuntimeException. "What gives?")))))
+                          app
+                          (classlojure/eval-in
+                           clojure-16
+                           'frereth-renderer.application/new-application
                            configuration session)]
                       (assoc acc (:id session) app)))
                   {}
-                  @(:sessions session-manager))]
+                  sessions)]
       (log/debug "View Manager started")))
 
   (stop
