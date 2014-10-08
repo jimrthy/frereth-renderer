@@ -61,35 +61,38 @@
                                                               play
                                                               ss-component
                                                               ss-dependency
-                                                              working)
-                          base-line
-                          (classlojure/eval-in
-                           clojure-16
-                           '(do
-                              (println "Setting up a new Application, with classpath:\n"
-                                       (System/getProperty "java.class.path")
-                                       "\n")
-                              (try
-                                (require 'frereth-renderer.application)
-                                (catch java.io.FileNotFoundException ex
-                                  (println "Missing File")
-                                  (let [msg "\n\nWhy can't I find this?"]
-                                    (println ex)
-                                    (dorun (map println (.getStackTrace ex)))
-                                    (println msg)
-                                    (throw ex)))
-                                (catch clojure.lang.ExceptionInfo ex
-                                  (println "Fail")
-                                  (let [msg "\n\nWhat on Earth is going on?"]
-                                    (println ex "\n" (.getStackTrace ex) msg)
-                                    (throw ex))))
-                              (println "ns successfully required")))
-                          app
-                          (classlojure/eval-in
-                           clojure-16
-                           'frereth-renderer.application/new-application
-                           details)]
-                      (assoc acc (:id session) app)))
+                                                              working)]
+                      (let [fieldSysPath (.getDeclaredField (class clojure-16) "sys_paths")]
+                        (.setAccessible fieldSysPath true)
+                        (.set fieldSysPath nil nil))
+                      (let [base-line
+                            (classlojure/eval-in
+                             clojure-16
+                             '(do
+                                (println "Setting up a new Application, with classpath:\n"
+                                         (System/getProperty "java.class.path")
+                                         "\n")
+                                (try
+                                  (require 'frereth-renderer.application)
+                                  (catch java.io.FileNotFoundException ex
+                                    (println "Missing File")
+                                    (let [msg "\n\nWhy can't I find this?"]
+                                      (println ex)
+                                      (dorun (map println (.getStackTrace ex)))
+                                      (println msg)
+                                      (throw ex)))
+                                  (catch clojure.lang.ExceptionInfo ex
+                                    (println "Fail")
+                                    (let [msg "\n\nWhat on Earth is going on?"]
+                                      (println ex "\n" (.getStackTrace ex) msg)
+                                      (throw ex))))
+                                (println "ns successfully required")))
+                            app
+                            (classlojure/eval-in
+                             clojure-16
+                             'frereth-renderer.application/new-application
+                             details)]
+                        (assoc acc (:id session) app))))
                   {}
                   sessions)]
       (log/debug "View Manager started")))
