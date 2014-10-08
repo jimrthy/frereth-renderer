@@ -50,7 +50,11 @@
 
           result
           (reduce (fn [acc session]
-                    (let [clojure-16 (classlojure/classlojure clojure
+                    (let [details {"platform" (name (:platform configuration))
+                                   "title" (:title session)
+                                   "width" (:width session)
+                                   "height" (:height session)}
+                          clojure-16 (classlojure/classlojure clojure
                                                               gdx-backend
                                                               libgdx
                                                               lwjgl
@@ -79,13 +83,12 @@
                                   (let [msg "\n\nWhat on Earth is going on?"]
                                     (println ex "\n" (.getStackTrace ex) msg)
                                     (throw ex))))
-                              (println "ns successfully required")
-                              (comment (throw (RuntimeException. "What gives?")))))
+                              (println "ns successfully required")))
                           app
                           (classlojure/eval-in
                            clojure-16
                            'frereth-renderer.application/new-application
-                           configuration session)]
+                           details)]
                       (assoc acc (:id session) app)))
                   {}
                   sessions)]

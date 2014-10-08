@@ -167,7 +167,7 @@
             (create []
               (game-create-handler this)))]
       (info "Game Listener created.")
-      {:listener game})
+      game)
     (catch RuntimeException ex
       ;; log/error really should print the exception details for me.
       ;; Then again, it also shouldn't just disappear from the REPL
@@ -188,7 +188,7 @@
 ;;; Public
 
 (defn new-application ^App
-  [configuration session]
+  [configuration]
   (info "Building a new App")
 
   ;; Extracting the keys from platform is failing.
@@ -196,16 +196,18 @@
   ;; Its keys were set up under a different classloader.
   ;; => they don't match keywords in *this* classloader.
   ;; This seems like a sticky wicket.
-  (throw (RuntimeException. "Start here"))
-  (if-let [platform (:platform configuration)]
+  ;; First plan that springs to mind: pass in all the
+  ;; parameters I need individually rather than a pair of maps.
+  ;; Second plan: turn the keys into strings before passing them.
+  (if-let [platform (keyword (get configuration "platform"))]
     (let [game (new-listener)
           
           ;; TODO: Load these next from configuration
           ;; Actually, get a default database from
           ;; there, and load these from it.
-          title (:title session)
-          width (:width session)
-          height (:height session)]
+          title (get configuration "title")
+          width (or (get configuration "width") 1440)
+          height (or (get configuration "height") 1080)]
       (try
         (let [;; It seems ridiculous that I can't break
               ;; these cases down more thoroughly.
@@ -219,30 +221,45 @@
                                           game title width height)
                             (throw (ex-info "Not Implemented"
                                             {:platform platform
-                                             :configuration configuration
-                                             :session session})))]
+                                             :configuration configuration})))]
           {:app application
            :listener game})
+        (catch java.lang.IllegalArgumentException ex
+          (let [msg (str (.getStackTrace ex)
+                         "\nListener: " game
+                         "\ntitle: " title " width: " width " height: " height)]
+            (error msg)
+            (throw (ex-info "See logs"
+                            {:application-failure true
+                             :configuration configuration}
+                            ex))))
         (catch java.lang.IllegalStateException ex
           (throw (ex-info "Illegal State"
                           {}
                           ex)))
+        (catch NullPointerException ex
+          (let [msg (str "NPE:\n" (dorun (map #(.getString %) (.getStackTrace ex)))
+                         "\nListener: " game
+                         "\ntitle: " title " width: " width " height: " height)]
+            (error msg)
+            (throw (ex-info "See logs"
+                            {:application-failure true
+                             :configuration configuration}
+                            ex))))
         (catch RuntimeException ex
-          (error ex "Problem definitely stems from trying to set up the Application\n"
+          (error "Problem definitely stems from trying to set up the Application\n"
                  "Game: " game
                  "\nTitle: " title
                  "\nWidth: " width
                  "\nHeight: " height
                  "\nConfiguration: " configuration
-                 "\nSession: " session
                  "\nException: " (with-out-str (pprint ex)))
           (throw (ex-info "See logs"
                           {:application-failure true
-                           :configuration configuration
-                           :session session}
+                           :configuration configuration}
                           ex)))
         (catch Exception ex
-          (error ex "Unexpectedly failed to set up Application\n"
+          (error "Unexpectedly failed to set up Application\n"
                  "Game: " game
                  "\nTitle: " title
                  "\nWidth: " width
@@ -252,7 +269,7 @@
                           {:application-failure true}
                           ex)))
         (catch Throwable ex
-          (error ex "Severely failed to set up Application\n"
+          (error "Severely failed to set up Application\n"
                  "Game: " game
                  "\nTitle: " title
                  "\nWidth: " width
@@ -270,5 +287,4 @@
       (error message)
       (throw (ex-info message
                       {:configuration configuration
-                       :session session
                        :missing-platform true})))))
