@@ -187,7 +187,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
 
-(defn new-application ^App
+(defn new ^App
   [configuration]
   (info "Building a new App")
 
@@ -199,15 +199,12 @@
   ;; First plan that springs to mind: pass in all the
   ;; parameters I need individually rather than a pair of maps.
   ;; Second plan: turn the keys into strings before passing them.
-  (if-let [platform (keyword (get configuration "platform"))]
+  (if-let [platform (:platform configuration)]
     (let [game (new-listener)
-          
-          ;; TODO: Load these next from configuration
-          ;; Actually, get a default database from
-          ;; there, and load these from it.
-          title (get configuration "title")
-          width (or (get configuration "width") 1440)
-          height (or (get configuration "height") 1080)]
+          window (:window configuration)
+          title (:title window)
+          width (or (:width window) 1440)
+          height (or (:height window) 1080)]
       (try
         (let [;; It seems ridiculous that I can't break
               ;; these cases down more thoroughly.

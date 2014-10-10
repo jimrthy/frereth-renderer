@@ -34,7 +34,7 @@
   (log/info "INIT\n" (util/pretty cfg))
 
   (component/system-map
-   ;;:application (application/new-application cfg)
+   :application (application/new cfg)
    :channels (comm/new-channels)
    ;; TODO: These next pieces are wrong. There should
    ;; be a many-to-many relationship among renderers and
@@ -73,7 +73,7 @@
    ;; on communications.
    ;; Although it *is* strongly impacted by the FSM
    :graphics [:application :client-heartbeat-thread :fsm
-              :logging :session]
+              :logging :session-manager]
    ;; Q: What was I thinking here?
    ;; A: session-manager owned the database URL, for some reason.
    ;; The session would use persistence to restore itself.

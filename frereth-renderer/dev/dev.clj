@@ -29,7 +29,10 @@
         cfg {:database-url db-url
              :fsm-description fsm-descr
              :initial-state :disconnected
-             :platform :desktop}]
+             :platform :desktop
+             :window {:title "Frereth"
+                      :width 1440
+                      :height 1080}}]
     
     ;; Note that this makes us reliant on datomic free for tracking
     ;; sessions.

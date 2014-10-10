@@ -24,12 +24,13 @@
      channel logging session
      client-heartbeat-thread  ; This is a go block
      fsm :- FiniteStateMachine
-     screen-hud :- clojure.lang.Atom
      entities-hud :- clojure.lang.Atom
-     screen-3d :- clojure.lang.Atom
      entities-3d :- clojure.lang.Atom
      hud  ; instance of a play-clj Screen
-     main-view-3d]
+     main-view-3d
+     screen-hud :- clojure.lang.Atom
+     screen-3d :- clojure.lang.Atom
+     session-manager]
   component/Lifecycle
   (start 
    [this]
@@ -49,6 +50,19 @@
        (raise [:fsm-transition
                {:reason ex}])))
     (log/info "FSM Disconnected")
+
+    ;; This approach is wrong.
+    ;; Each View (controlled by the view-manager)
+    ;; needs to have its appropriate screens.
+    ;; In all honesty, this should really just be
+    ;; choosing which View to draw.
+
+    ;; Except that, given the underlying architecture,
+    ;; that isn't right either.
+
+    ;; The problem may really stem from the fact that
+    ;; the entire architecture is simply wrong for what
+    ;; I need to make happen.
     (let [screen-hud-atom (if screen-hud
                             screen-hud
                             (atom {}))

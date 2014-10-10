@@ -17,7 +17,15 @@
         initial-cfg {:database-url db-url
                      :fsm-description fsm-descr
                      :initial-state :disconnected
-                     :platform :desktop}
+                     :platform :desktop
+                     ;; TODO: Load these next from configuration
+                     ;; Actually, get a default database from
+                     ;; there, and load these from it.
+                     ;; Better: Just run full screen the way
+                     ;; games should.
+                     :window {:title "Frereth"
+                              :width 1440
+                              :height 1080}}
         dead-world (sys/build initial-cfg)
         world (component/start dead-world)]
     (try
