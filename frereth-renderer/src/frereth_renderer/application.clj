@@ -214,6 +214,14 @@
               ;; Oh well. It's not like this is all that
               ;; much extra boilerplate.
               application (condp = platform
+                            ;; TODO: LwjglCanvas is specifically designed
+                            ;; to be a component embedded inside a Swing app
+                            ;; For that matter, the LwjglApplication takes a
+                            ;; java.awt.Canvas as a parameter...which seems like
+                            ;; at least a hint that it might run well embedded
+                            ;; For that matter, the JglfwApplication is pretty
+                            ;; interesting as well.
+                            ;; Maybe a lot more interesting.
                             :desktop (new LwjglApplication
                                           game title width height)
                             (throw (ex-info "Not Implemented"

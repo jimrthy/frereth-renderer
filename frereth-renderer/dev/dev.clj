@@ -11,7 +11,7 @@
             ;;[dynalint.lint :as dyn]
             [frereth-renderer.communications :as comm]
             [frereth-renderer.config :as cfg]
-            [frereth-renderer.graphics :as graphics]
+            [frereth-renderer.graphics.core :as graphics]
             [frereth-renderer.system :as system]
             [ribol.core :refer (raise)]))
 

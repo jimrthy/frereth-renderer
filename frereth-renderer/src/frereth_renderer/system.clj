@@ -7,7 +7,7 @@
             [frereth-renderer.communications :as comm]
             [frereth-renderer.config :as config]
             [frereth-renderer.fsm :as fsm]
-            [frereth-renderer.graphics :as graphics]
+            [frereth-renderer.graphics.core :as graphics]
             [frereth-renderer.input.core :as input]
             [frereth-renderer.logging :as logging]
             [frereth-renderer.persist.core :as persistence]

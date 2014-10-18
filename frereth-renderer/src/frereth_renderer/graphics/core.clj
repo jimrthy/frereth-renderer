@@ -1,4 +1,4 @@
-(ns frereth-renderer.graphics
+(ns frereth-renderer.graphics.core
   (:require [clojure.core.async :as async]
             [com.stuartsierra.component :as component]
             [frereth-renderer.events :as events]

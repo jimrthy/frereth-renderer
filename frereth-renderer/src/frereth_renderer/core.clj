@@ -3,7 +3,7 @@
             [com.stuartsierra.component :as component]
             [datomic.api :as d]
             [frereth-renderer.config :as cfg]
-            [frereth-renderer.graphics :as graphics]
+            [frereth-renderer.graphics.core :as graphics]
             [frereth-renderer.system :as sys]
             [ribol.core :refer (raise)]
             [taoensso.timbre :as log])
