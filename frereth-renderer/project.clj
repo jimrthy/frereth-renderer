@@ -62,14 +62,14 @@ java.library.path and that's good enough."
                  ;; using hiccup?)
                  ;[datomic-schema-grapher "0.0.1"]
                  [frereth-client "0.1.0-SNAPSHOT"]
-                 #_[im.chit/ribol "0.4.0"]
+                 [frereth-common "0.0.1-SNAPSHOT"]
+                 [im.chit/ribol "0.4.0"]
                  ;;[jimrthy/cljeromq "0.1.0-SNAPSHOT"]  ; Q: Go away, or not?
                  [org.clojure/clojure "1.6.0"]  ; 1.7 breaks datomic
                  [org.clojure/core.async "0.1.338.0-5c5012-alpha"]
                  [org.clojure/core.contracts "0.0.5"]  ; TODO: Make this go away
                  ;; TODO: What is this?
                  [org.clojure/math.combinatorics "0.0.7"]
-                 ;;[org.flatland/classlojure "0.7.1"]
                  [org.flatland/protobuf "0.8.1"]
                  [org.flatland/useful "0.11.2"]
                  [org.zeromq/cljzmq "0.1.4"]
@@ -90,7 +90,6 @@ java.library.path and that's good enough."
                  ;;[slick-util "1.0.0"]
                  ;; Probably does not belong at all in the "new reality"
                  ;; of using libgdx as the foundation
-                 
                  ]
   :documentation {:files {"basics" {:input "test/docs/basics.clj"
                                     :title "Basics"
@@ -101,7 +100,7 @@ java.library.path and that's good enough."
                    (System/getProperty "java.library.path"))]  ; for jzmq
   :main frereth-renderer.core
 
-  :plugins [[lein-protobuf "0.4.1"]]
+  :plugins [[lein-protobuf "0.4.1"]]  ;; TODO: Do I want to try to use that?
 
   :profiles {:uberjar {:aot :all}
              :dev {:source-paths ["dev"]
