@@ -363,6 +363,8 @@ But works for my purposes"
   []
   (map->ClientSocket {}))
 
+;; This next line's failing because I'm missing schema.core/fn.
+;; Q: What's the problem?
 (pc/defnk new-client-url
   [[:client-url protocol address port]]
   (let [params {:protocol protocol

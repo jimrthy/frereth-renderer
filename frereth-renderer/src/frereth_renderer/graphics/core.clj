@@ -178,7 +178,7 @@ never gets called."
 ;;; its own namespace.
 
 (declare display)
-(declare update)
+(declare frereth-update)
 (defn begin-eye-candy-thread
   "Graphics first and foremost: the user needs eye candy ASAP.
 This makes that happen"
@@ -198,7 +198,7 @@ This makes that happen"
              :mouse-move mouse-move
              :mouse-up mouse-up
              :reshape reshape
-             :update update}
+             :update frereth-update}
             visual-details)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -212,7 +212,7 @@ This makes that happen"
   ;; Think Sad Mac or BSOD.
   (throw (RuntimeException. (str "Unknown State: " params))))
 
-(defn update
+(defn frereth-update
   "This is a left-over from penumbra. It really doesn't make a lot
 of sense in a version based on play-clj.
 

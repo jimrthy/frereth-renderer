@@ -40,43 +40,45 @@ java.library.path and that's good enough."
   ;; listed here instead.
   :dependencies [[byte-streams "0.1.13"]
                  [byte-transforms "0.1.3"]
-                 [com.badlogicgames.gdx/gdx "1.3.1"]
-                 [com.badlogicgames.gdx/gdx-backend-lwjgl "1.3.1"]
-                 [com.badlogicgames.gdx/gdx-box2d "1.3.1"]
-                 [com.badlogicgames.gdx/gdx-box2d-platform "1.3.1"
+                 [com.badlogicgames.gdx/gdx "1.4.1"]
+                 [com.badlogicgames.gdx/gdx-backend-lwjgl "1.4.1"]
+                 [com.badlogicgames.gdx/gdx-box2d "1.4.1"]
+                 [com.badlogicgames.gdx/gdx-box2d-platform "1.4.1"
                   :classifier "natives-desktop"]
-                 [com.badlogicgames.gdx/gdx-bullet "1.3.1"]
-                 [com.badlogicgames.gdx/gdx-bullet-platform "1.3.1"
+                 [com.badlogicgames.gdx/gdx-bullet "1.4.1"]
+                 [com.badlogicgames.gdx/gdx-bullet-platform "1.4.1"
                   :classifier "natives-desktop"]
-                 [com.badlogicgames.gdx/gdx-platform "1.3.1"
+                 [com.badlogicgames.gdx/gdx-platform "1.4.1"
                   :classifier "natives-desktop"]
-                 [com.cemerick/pomegranate "0.3.0"]
-                 ;; clojars claims that it has this available for download
-                 [com.datomic/datomic-free "0.9.4899"]
+                 ;; clojars claims that it has this available for download,
+                 ;; but you're really better off downloading it and installing
+                 ;; it manually.
+                 ;; Q: What is the renderer using this for?
+                 [com.datomic/datomic-free "0.9.5078" :exclusions [joda-time]]
                  [com.stuartsierra/component "0.2.2"]
-                 [com.taoensso/timbre "3.3.1"]
+                 [com.taoensso/timbre "3.3.1" :exclusions [org.clojure/tools.reader]]
                  ;; I want something like the next line, but it somehow
                  ;; manages to make hiccup conflict with itself
                  ;; (I blame this complicated project, not the library
                  ;; I want to use...after all, why on earth am I
                  ;; using hiccup?)
                  ;[datomic-schema-grapher "0.0.1"]
-                 [frereth-client "0.1.0-SNAPSHOT"]
+                 [frereth-client "0.1.0-SNAPSHOT" :exclusions [org.clojure/tools.reader]]
                  [frereth-common "0.0.1-SNAPSHOT"]
                  [im.chit/ribol "0.4.0"]
                  ;;[jimrthy/cljeromq "0.1.0-SNAPSHOT"]  ; Q: Go away, or not?
-                 [org.clojure/clojure "1.6.0"]  ; 1.7 breaks datomic
+                 [org.clojure/clojure "1.7.0-alpha4"]  ; 1.7.0-alpha2 broke datomic. jira claims it's fixed.
                  [org.clojure/core.async "0.1.338.0-5c5012-alpha"]
                  [org.clojure/core.contracts "0.0.5"]  ; TODO: Make this go away
                  ;; TODO: What is this?
-                 [org.clojure/math.combinatorics "0.0.7"]
+                 [org.clojure/math.combinatorics "0.0.8"]
                  [org.flatland/protobuf "0.8.1"]
-                 [org.flatland/useful "0.11.2"]
+                 [org.flatland/useful "0.11.3"]
                  [org.zeromq/cljzmq "0.1.4"]
-                 [play-clj "0.3.11"]
+                 [play-clj "0.4.2"]
                  ;; TODO: An nrepl client?
-                 [prismatic/plumbing "0.3.3"]
-                 [prismatic/schema "0.3.0"]
+                 [prismatic/plumbing "0.3.5"]
+                 [prismatic/schema "0.3.3"]
 
                  ;; FIXME: Is this more appropriate here or in frereth-client?
                  ;; Is it worth an external dependency at all? Especially since
@@ -107,12 +109,13 @@ java.library.path and that's good enough."
                    :dependencies  [[alembic "0.3.2"]
                                    [clj-ns-browser "1.3.1"]
                                    ;;[com.ambrosebs/dynalint "0.1.3"]
-                                   [midje "1.6.3"]
-                                   [org.clojure/tools.namespace "0.2.6"]
+                                   [com.cemerick/pomegranate "0.3.0"]  ; :exclusions [org.codehaus.plexus/plexus-utils]
+                                   [midje "1.6.3" :exclusions [joda-time org.clojure/tools.macro]]
+                                   [org.clojure/tools.namespace "0.2.7"]
                                    [org.clojure/java.classpath "0.2.2"]
                                    ;; Umm...do I really not want this for
                                    ;; real??
-                                   [org.clojure/tools.logging "0.2.6"]]}}
+                                   [org.clojure/tools.logging "0.3.1"]]}}
   :repl-options {:init-ns user}
   ;; FIXME: these are both experimental repos and should go away.
   ;; One was needed for core.async.
