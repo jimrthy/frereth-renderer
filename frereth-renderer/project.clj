@@ -40,15 +40,15 @@ java.library.path and that's good enough."
   ;; listed here instead.
   :dependencies [[byte-streams "0.1.13"]
                  [byte-transforms "0.1.3"]
-                 [com.badlogicgames.gdx/gdx "1.4.1"]
-                 [com.badlogicgames.gdx/gdx-backend-lwjgl "1.4.1"]
-                 [com.badlogicgames.gdx/gdx-box2d "1.4.1"]
-                 [com.badlogicgames.gdx/gdx-box2d-platform "1.4.1"
+                 [com.badlogicgames.gdx/gdx "1.5.0"]
+                 [com.badlogicgames.gdx/gdx-backend-lwjgl "1.5.0"]
+                 [com.badlogicgames.gdx/gdx-box2d "1.5.0"]
+                 [com.badlogicgames.gdx/gdx-box2d-platform "1.5.0"
                   :classifier "natives-desktop"]
-                 [com.badlogicgames.gdx/gdx-bullet "1.4.1"]
-                 [com.badlogicgames.gdx/gdx-bullet-platform "1.4.1"
+                 [com.badlogicgames.gdx/gdx-bullet "1.5.0"]
+                 [com.badlogicgames.gdx/gdx-bullet-platform "1.5.0"
                   :classifier "natives-desktop"]
-                 [com.badlogicgames.gdx/gdx-platform "1.4.1"
+                 [com.badlogicgames.gdx/gdx-platform "1.5.0"
                   :classifier "natives-desktop"]
                  ;; clojars claims that it has this available for download,
                  ;; but you're really better off downloading it and installing
@@ -111,7 +111,7 @@ java.library.path and that's good enough."
                                    ;;[com.ambrosebs/dynalint "0.1.3"]
                                    [com.cemerick/pomegranate "0.3.0"]  ; :exclusions [org.codehaus.plexus/plexus-utils]
                                    [midje "1.6.3" :exclusions [joda-time org.clojure/tools.macro]]
-                                   [org.clojure/tools.namespace "0.2.7"]
+                                   [org.clojure/tools.namespace "0.2.8"]
                                    [org.clojure/java.classpath "0.2.2"]
                                    ;; Umm...do I really not want this for
                                    ;; real??
