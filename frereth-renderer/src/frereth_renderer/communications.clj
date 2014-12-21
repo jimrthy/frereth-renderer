@@ -4,7 +4,7 @@
             [clojure.pprint :refer (pprint)]
             ;;[clojurewerkz.buffy.core :as buffy]
             [com.stuartsierra.component :as component]
-            [plumbing.core :as pc]
+            [plumbing.core :as pc :refer (defnk)]
             [ribol.core :refer (escalate manage on raise raise-on)]
             [schema.core :as s]
             [taoensso.timbre :as log]
@@ -365,11 +365,9 @@ But works for my purposes"
 
 ;; This next line's failing because I'm missing schema.core/fn.
 ;; Q: What's the problem?
-(pc/defnk new-client-url
-  [[:client-url protocol address port]]
-  (let [params {:protocol protocol
-                :address address
-                :port port}
+(defn new-client-url
+  [{:keys [client-url]}]
+  (let [params (get-in client-url [:protocol :address :port])
         uri (strict-map->URI params)]
     (log/info "Initial client URL: " (with-out-str (pprint params)))
     (strict-map->ClientUrl {:uri uri})))
