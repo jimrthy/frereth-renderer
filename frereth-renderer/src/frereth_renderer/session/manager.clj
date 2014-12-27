@@ -1,10 +1,10 @@
 (ns frereth-renderer.session.manager
-  (:gen-class)
   (:require [clojure.edn :as edn]
             [com.stuartsierra.component :as component]
             [frereth-renderer.session.core :as session]
             [schema.core :as s]
-            [schema.macros :as sm]))
+            [schema.macros :as sm])
+  (:gen-class))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schema

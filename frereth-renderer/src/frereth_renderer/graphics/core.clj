@@ -23,18 +23,22 @@
      (fsm/current-state (:fsm state))))
 
 (declare build-hud build-main-3d)
+;; TODO: How many of these can I import without causing any
+;; issues?
 (s/defrecord Graphics
-    [application
-     channel logging session
+    [application  ; frereth.renderer/App
+     channel
      client-heartbeat-thread  ; This is a go block
      fsm :- FiniteStateMachine
      entities-hud :- clojure.lang.Atom
      entities-3d :- clojure.lang.Atom
      hud  ; instance of a play-clj Screen
-     main-view-3d
+     logging  ; frereth-renderer.logging/Logger
+     main-view-3d  ; Screen
      screen-hud :- clojure.lang.Atom
      screen-3d :- clojure.lang.Atom
-     session-manager]
+     session-manager  ; session.manager/SessionManager
+     ]
   component/Lifecycle
   (start 
    [this]
@@ -67,19 +71,11 @@
     ;; The problem may really stem from the fact that
     ;; the entire architecture is simply wrong for what
     ;; I need to make happen.
-    (let [screen-hud-atom (if screen-hud
-                            screen-hud
-                            (atom {}))
-          entities-hud-atom (if entities-hud
-                              entities-hud
-                              (atom []))
+    (let [screen-hud-atom (or screen-hud (atom {}))
+          entities-hud-atom (or entities-hud (atom []))
           hud (build-hud screen-hud-atom entities-hud-atom)
-          screen-3d-atom (if screen-3d
-                            screen-3d
-                            (atom {}))
-          entities-3d-atom (if entities-3d
-                              entities-3d
-                              (atom []))
+          screen-3d-atom (or screen-3d (atom {}))
+          entities-3d-atom (or entities-3d (atom []))
           main-view-3d (build-main-3d fsm screen-3d-atom entities-3d-atom)]
       (play-clj/set-screen! (:listener application main-view-3d hud))
       (into this {:channel (async/chan)
@@ -142,39 +138,45 @@
 
 (defn driver-version
   "What's available?
-Note that penumbra has a get-version that returns a float version of the same value."
+Note that penumbra has a get-version that returns a float
+version of the same value."
   []
   (play-clj/gl :gl-version))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Initialization
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Event Handlers
 
 (defn reshape
   "Should get called every time the window changes size.
-For that matter, it should probably get called every time the window
-changes position. In practice, it almost never seems to get called.
-Actually, if my experiments with pen-sample are any indication, this
-never gets called."
+For that matter, it should probably get called every time the
+window changes position. In practice, it almost never seems to
+get called.
+Actually, if my experiments with pen-sample are any indication,
+this never gets called."
   [[x y w h] state]
-  ;; I have different goals from ztellman. We'll probably branch for real
-  ;; here. I need to get his permission.
-  ;; I want this to update every time the outer window changes state.
+  ;; I have different goals from ztellman. We'll probably
+  ;; branch for real here. I need to get his permission.
+  ;; I want this to update every time the outer window changes
+  ;; state.
   ;; And, periodically, when it changes position.
   ;; This gets ugly
   (comment)(log/trace "Reshape")
   ;; FIXME: This fixed camera isn't appropriate at all.
-  ;; It really needs to be set for whichever window is currently active.
+  ;; It really needs to be set for whichever window is
+  ;; currently active.
   ;; But it's a start.
-  ;; Besides...this is the vast majority of what init-gl was doing for starters.
+  ;; Besides...this is the vast majority of what init-gl was
+  ;; doing for starters.
   (comment (gl/frustum-view 60.0 (/ (double w) h) 1.0 100.0)
            (gl/load-identity))
   (raise :not-implemented)
   state)
 
-;;; FIXME: Initialization/destruction code seems to make more sense in
+;;; FIXME: Initialization/destruction code seems to make more
+;;; sense in
 ;;; its own namespace.
 
 (declare display)
@@ -201,11 +203,12 @@ This makes that happen"
              :update frereth-update}
             visual-details)))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Drawing
 
 (defmethod draw :main-life [params]
-  (throw (RuntimeException. "Draw whatever the client has told us to!")))
+  (throw (RuntimeException.
+          "Draw whatever the client has told us to!")))
 
 (defmethod draw :default [params]
   ;; FIXME: Do something better here.
@@ -213,15 +216,17 @@ This makes that happen"
   (throw (RuntimeException. (str "Unknown State: " params))))
 
 (defn frereth-update
-  "This is a left-over from penumbra. It really doesn't make a lot
-of sense in a version based on play-clj.
+  "This is a left-over from penumbra. It really doesn't make
+a lot of sense in a version based on play-clj.
 
-It might make more sense in a version that's just based on libgdx, or
-raw lwjgl.
+It might make more sense in a version that's just based on
+libgdx, or raw lwjgl.
 
-Called each frame, just before display. This lets me make things stateful.
+Called each frame, just before display. This lets me make
+things stateful.
 An exception that escapes here crashes the entire app.
-As in, the window dies, nothing gets displayed, and the app seems
+As in, the window dies, nothing gets displayed, and the app
+seems
 to keep running, doing absolutely nothing.
 This is absolutely unacceptable.
 TODO: Wrap this entire thing in an exception handler. If something
