@@ -75,10 +75,14 @@
     (.close ^ZMQ$Context (:context this))  ; TODO: Getting a compiler warning about reflection ??
     (assoc this :context nil)))
 
+;; These are actually both async/thread instances
+(def coupler-map {ui->client s/Any
+                  client-ui s/Any})
+
 (declare couple)
-(s/defrecord Coupling [coupling
-                        context :- Context
-                        channels :- Channels]
+(s/defrecord Coupling [coupling :- coupler-map
+                       context :- Context
+                       channels :- Channels]
   component/Lifecycle
   (start
    [this]
@@ -110,7 +114,7 @@
 
 (declare build-url)
 (s/defrecord ClientSocket [context :- Context
-                            socket
+                            socket  ; Something like a ZMQ$Socket...depends on the underlying library
                             url :- ClientUrl]
   component/Lifecycle
   (start
@@ -120,6 +124,10 @@
              "\nout of:"
              (with-out-str (pprint this)))
    (try
+     ;; Q: Is this really a dealer?
+     ;; A: Yes. It should only connect to one client's Router,
+     ;; but the messaging is still asynchronous.
+     ;; And we don't care where the messages go.
      (let [sock (mq/socket (:context context) :dealer)
            real-url (build-url (:uri url))]
        (try
@@ -360,8 +368,13 @@ But works for my purposes"
   (map->Channels {}))
 
 (defn new-client-socket
-  []
-  (map->ClientSocket {}))
+  [cfg]
+  ;; Specifying the context and socket should really be rare enough
+  ;; that I just take those options away.
+  (map->ClientSocket (cond-> {}
+                       (:context cfg) (assoc :context (:context cfg))
+                       (:socket cfg) (assoc :socket (:socket cfg))
+                       (:url cfg) (assoc :url (:url cfg)))))
 
 ;; This next line's failing because I'm missing schema.core/fn.
 ;; Q: What's the problem?

@@ -42,7 +42,7 @@
    ;; Although, really, the client shouldn't need to know
    ;; that
    :client (client/init cfg)
-   :client-socket (comm/new-client-socket)
+   :client-socket (comm/new-client-socket cfg)
    :client-url (comm/new-client-url cfg)
    :client-heartbeat-thread (input/new-client-connection-thread)
    :context (comm/new-context)
